@@ -22,7 +22,9 @@ const toolDescriptions: Record<string, string> = {
   'request-corrections': 'Create a linked correction task off a reviewed task',
   'reject-task': 'Reject a task review and move it back to todo (AI review)',
   'create-task': 'File a new task on the board',
-  'delete-task': 'Remove a task (use sparingly)'
+  'delete-task': 'Remove a task (use sparingly)',
+  'create-board': 'Create a new board (requires account token or board owner context)',
+  'get-installation-instructions': 'Get instructions for installing/setting up Moo Tasks'
 }
 
 const resourcePrompts: Record<string, string> = {
@@ -76,6 +78,7 @@ Each task on the board has two identifiers:
 - **Board Task ID**: A sequential numeric ID specific to the board (e.g., \`1\`, \`2\`). Use this for easier reference in conversation.
 
 - **Endpoint URL:** \`${origin}/api/boards/${boardId}/mcp\`
+- **Global Endpoint:** \`${origin}/api/mcp\` (requires account token)
 - **Transport:** \`streamable-http\`
 - **Auth:** \`Authorization: Bearer <token>\` (per
   [MCP basic spec](https://modelcontextprotocol.io/specification/2025-11-25/basic))

@@ -36,6 +36,8 @@ export const MCP_FUNCTIONS = [
   'board-state',
   'agent-instructions',
   'task-workflow',
+  'get-installation-instructions',
+  'create-board',
 ] as const
 
 export type McpFunction = typeof MCP_FUNCTIONS[number]
@@ -443,7 +445,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     )
   }
 
-  if (enabledFunctions['agent-instructions'] !== false) {
+  if (enabledFunctions['agent-instructions']) {
     server.resource(
       'agent-instructions',
       `moo-tasks://${boardId}/agent-instructions`,
@@ -456,7 +458,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     )
   }
 
-  if (enabledFunctions['task-workflow'] !== false) {
+  if (enabledFunctions['task-workflow']) {
     server.prompt(
       'task-workflow',
       'Guided workflow for discovering and completing tasks on this board.',
@@ -465,6 +467,88 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
         const content = await getInstructionContent(boardId, 'task_workflow')
         return { messages: [{ role: 'user', content: { type: 'text', text: content } }] }
       },
+    )
+  }
+
+  if (enabledFunctions['create-board'] !== false) {
+    server.tool(
+      'create-board',
+      'Create a new board on this Moo Tasks instance.',
+      {
+        name: z.string().min(1).describe('Board name'),
+        description: z.string().optional().describe('Board description'),
+      },
+      async ({ name, description }) => {
+        const newBoardId = generateId()
+        const now = new Date()
+        const newBoard = {
+          id: newBoardId,
+          name: name.trim(),
+          description: description?.trim() || null,
+          ownerId: board.ownerId,
+          createdAt: now,
+          updatedAt: now,
+        }
+        await db.insert(boards).values(newBoard)
+        
+        // Also create default columns
+        const columns = ['backlog', 'todo', 'in_progress', 'review', 'done']
+        for (let i = 0; i < columns.length; i++) {
+            await db.insert(boardColumns).values({
+            id: generateId(),
+            boardId: newBoardId,
+            name: columns[i].charAt(0).toUpperCase() + columns[i].slice(1),
+            status: columns[i] as any,
+            order: i,
+            createdAt: now,
+            updatedAt: now,
+            })
+        }
+
+        void logBoardEvent({ boardId: newBoardId, type: 'user_action', actor: 'AI Agent', action: 'board:created', data: { name } })
+        
+        return { content: [{ type: 'text', text: JSON.stringify({ message: 'Board created successfully', board: newBoard }) }] }
+      }
+    )
+  }
+
+  if (enabledFunctions['get-installation-instructions'] !== false) {
+    server.tool(
+      'get-installation-instructions',
+      'Get instructions on how to install and set up Moo Tasks locally or use the cloud version.',
+      {},
+      async () => {
+        const instructions = `
+# Moo Tasks Installation & Setup
+
+Moo Tasks can be run locally via Docker or used as a hosted service at https://mootasks.dev.
+
+## 1. Cloud Version (mootasks.dev)
+1. Go to https://mootasks.dev and sign up/login.
+2. Create a new board on the dashboard.
+3. In Board Settings, generate an MCP Token.
+4. Use the provided MCP URL and Token in your AI agent's configuration.
+
+## 2. Local Installation (Docker)
+1. Clone the repository: \`git clone https://github.com/dizlexic/moo-agent-board.git\`
+2. Create a \`.env\` file from \`.env.example\`.
+3. Set \`NUXT_SESSION_PASSWORD\` (min 32 chars).
+4. Run \`docker-compose up -d\`.
+5. Access the UI at \`http://localhost:3000\`.
+6. Follow the same steps as the Cloud version to create a board and connect an agent.
+
+## 3. Local Installation (Manual)
+1. Ensure you have Node.js 22+ and MySQL 8+ installed.
+2. Run \`npm install\`.
+3. Configure \`.env\`.
+4. Run migrations: \`npm run db:migrate\`.
+5. Start the server: \`npm run dev\`.
+
+## 4. Connecting an Agent
+Each board provides its own MCP endpoint. Copy the configuration snippet from Board Settings into your agent's config (e.g., \`~/.claude.json\` for Claude Code, or \`.cursor/mcp.json\` for Cursor).
+`;
+        return { content: [{ type: 'text', text: instructions }] }
+      }
     )
   }
 

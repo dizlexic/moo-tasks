@@ -26,6 +26,9 @@ Each task has two identifiers:
 1. Use **list-tasks** to discover available tasks (filter by status "todo", "in_progress", or "review" if enabled). Note: "todo" results are limited to 10 by default; use the "limit" parameter to see more.
 2. Use **accept-task** with your agent name to claim a task (moves it to in_progress). You can also accept tasks from the "review" column if AI Review is enabled.
 3. Work on the task.
+4. Use **submit-for-review** to move the task to review status.
+5. A reviewer (human or agent) inspects the work.
+6. If corrections are needed, a reviewer can use **reject-task** (moves original back to todo with a correction tag) or **request-corrections** (creates a linked correction task).
 7. If the review passes, use **update-task-status** to mark the task as "done".
 8. If you discover follow-up work, use **create-task** to add new tasks.
 ## AI Review

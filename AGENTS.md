@@ -18,6 +18,7 @@ Each task on the board has two identifiers:
 - **Board Task ID**: A sequential numeric ID specific to the board (e.g., \`1\`, \`2\`). Use this for easier reference in conversation.
 
 - **Endpoint URL:** `https://mootasks.dev/api/boards/<boardId>/mcp` (or your self-hosted host)
+- **Global Endpoint:** `https://mootasks.dev/api/mcp` (requires account token)
 - **Transport:** `streamable-http`
 - **Auth:** `Authorization: Bearer <token>` (per
   [MCP basic spec](https://modelcontextprotocol.io/specification/2025-11-25/basic))
@@ -79,6 +80,8 @@ toggles in board settings):
 | `generate-changelog`  | Generate a markdown changelog based on completed (done) tasks |
 | `update-board-column` | Update a board column's name, description, or instructions    |
 | `list-board-members`  | List members of the board. WHEN TO USE: To find users to assign tasks to. |
+| `create-board`        | Create a new board (requires account token or board owner context) |
+| `get-installation-instructions` | Get instructions for installing/setting up Moo Tasks |
 
 Plus resources/prompts:
 
@@ -127,6 +130,19 @@ capacity on this project), follow this loop:
 - ❌ Don't move tasks straight to `done` — always go through `review`.
 - ❌ Don't try to access tasks from other boards; this token only works for
   the single board it was issued for.
+
+### Self-Sustaining Loop (TDD & Automation)
+
+To ensure continuous project improvement, follow this loop when no tasks are assigned or the board is empty:
+
+1. **Discovery:** If `list-tasks` returns zero `todo` tasks, analyze the project documentation (`README.md`, `docs/`, etc.) and the codebase to identify gaps in tests, documentation, or features.
+2. **Generation:** Create new discrete tasks using `create-task`. Each task should focus on one of the following areas:
+   - **Test implementation:** Unit, integration, or E2E tests for existing or new logic.
+   - **Performance & Fuzzing:** Add benchmarks or fuzz tests to stress-test critical components.
+   - **Security:** Audit sensitive areas (auth, DB access) and add security-focused tests.
+   - **Refactoring:** Identify technical debt and propose refactoring tasks with a focus on TDD.
+3. **TDD Best Practices:** When creating tasks, structure them to follow TDD (red-green-refactor). Start by defining a reproduction script or a failing test case that demonstrates the need for the change.
+4. **Maintenance:** Periodically review `done` tasks and run `generate-changelog` to keep documentation up to date.
 
 ---
 
