@@ -42,7 +42,7 @@ const configSnippet = computed(() => {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" @click.self="emit('close')">
+  <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" @mousedown.self="emit('close')">
     <div class="bg-white dark:bg-surface-card rounded-3xl p-8 shadow-2xl w-full max-w-2xl border border-gray-200 dark:border-surface-border overflow-y-auto max-h-[90vh] animate-in fade-in zoom-in duration-200">
       <div class="flex items-center justify-between mb-8">
         <div class="flex items-center gap-4">

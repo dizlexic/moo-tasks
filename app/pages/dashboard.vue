@@ -280,7 +280,7 @@ function onDelete(board: any) {
 
     <!-- Create Board Modal -->
     <BoardContextMenu ref="boardContextMenu" @edit="onEdit" @delete="onDelete" />
-    <EditBoardModal v-if="editingBoard" :board-id="editingBoard.id" :initial-name="editingBoard.name" :initial-description="editingBoard.description || ''" :initial-show-timeline="!!editingBoard.showTimeline" @close="editingBoard = null" @updated="fetchBoards" />
+    <EditBoardModal v-if="editingBoard" :board-id="editingBoard.id" :initial-name="editingBoard.name" :initial-description="editingBoard.description || ''" :initial-show-timeline="!!editingBoard.showTimeline" :initial-allow-ai-review="!!editingBoard.allowAiReview" :initial-allow-account-token="!!editingBoard.allowAccountToken" @close="editingBoard = null" @updated="fetchBoards" />
     <DeleteBoardModal v-if="deletingBoard" :board-id="deletingBoard.id" :board-name="deletingBoard.name" @close="deletingBoard = null" @deleted="fetchBoards" />
 
     <transition
@@ -297,7 +297,7 @@ function onDelete(board: any) {
         aria-modal="true"
         aria-labelledby="create-board-title"
         tabindex="-1"
-        @click.self="showCreate = false"
+        @mousedown.self="showCreate = false"
         @keydown="onCreateModalKeydown"
       >
         <div class="modal-panel bg-white dark:bg-surface-card rounded-3xl shadow-2xl dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-md border border-gray-200 dark:border-surface-border overflow-hidden">

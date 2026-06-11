@@ -27,7 +27,7 @@ async function onDelete() {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="emit('close')">
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @mousedown.self="emit('close')">
     <div class="bg-white dark:bg-surface-card rounded-2xl p-6 shadow-xl w-full max-w-md border border-gray-200 dark:border-surface-border">
       <h3 class="text-lg font-black text-gray-900 dark:text-white mb-4">Delete Board</h3>
       <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">

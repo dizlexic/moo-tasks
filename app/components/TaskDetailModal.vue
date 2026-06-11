@@ -269,7 +269,7 @@ function openParentTask() {
     aria-modal="true"
     aria-labelledby="task-detail-title"
     tabindex="-1"
-    @click.self="emit('close')"
+    @mousedown.self="handleClose"
   >
     <div class="modal-panel bg-white dark:bg-surface-card rounded-2xl shadow-2xl dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-[90vw] max-h-[90vh] overflow-hidden border border-gray-200 dark:border-surface-border flex flex-col">
       <!-- Header -->
@@ -454,7 +454,7 @@ function openParentTask() {
               </div>
             </div>
             <div class="flex gap-2">
-              <button type="button" @click="emit('close')" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors" title="Cancel">Cancel</button>
+              <button type="button" @click="handleClose" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors" title="Cancel">Cancel</button>
               <button
                 type="submit"
                 form="task-edit-form"

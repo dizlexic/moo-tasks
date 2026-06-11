@@ -113,7 +113,7 @@ async function onSubmit() {
     aria-modal="true"
     aria-labelledby="create-task-title"
     tabindex="-1"
-    @click.self="closeModal"
+    @mousedown.self="closeModal"
   >
     <div class="modal-panel relative bg-white dark:bg-surface-card rounded-2xl shadow-2xl dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-2xl border border-gray-200 dark:border-surface-border overflow-hidden">
       <div class="p-6 pb-4 border-b border-gray-100 dark:border-surface-border/50 flex items-center justify-between">

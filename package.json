@@ -13,7 +13,8 @@
     "db:seed": "tsx server/db/seed.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@nuxtjs/mcp-toolkit": "^0.13.4",
@@ -36,8 +37,12 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@nuxt/test-utils": "^4.0.3",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.6.0",
-    "@types/nodemailer": "^8.0.0"
+    "@types/nodemailer": "^8.0.0",
+    "@vitest/ui": "^4.1.8",
+    "happy-dom": "^20.10.2",
+    "vitest": "^4.1.8"
   }
 }

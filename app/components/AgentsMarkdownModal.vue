@@ -191,7 +191,7 @@ async function copyMarkdown() {
 
 <template>
   <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div class="absolute inset-0 bg-gray-950/60 backdrop-blur-sm" @click="emit('close')"></div>
+    <div class="absolute inset-0 bg-gray-950/60 backdrop-blur-sm" @mousedown="emit('close')"></div>
     
     <div class="relative w-full max-w-3xl bg-white dark:bg-surface-card rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100 dark:border-surface-border">
       <!-- Header -->

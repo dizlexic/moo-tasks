@@ -3,7 +3,7 @@
     class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
     role="dialog"
     aria-modal="true"
-    @click.self="emit('close')"
+    @mousedown.self="emit('close')"
   >
     <div class="bg-white dark:bg-surface-card rounded-2xl shadow-2xl w-full max-w-sm border border-gray-200 dark:border-surface-border p-6">
       <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Create New Tag</h2>
