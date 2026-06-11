@@ -175,6 +175,13 @@ function onDelete(board: any) {
       <div class="flex items-center justify-between ml-1">
         <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">My Boards</h2>
         <div class="flex gap-2">
+            <NuxtLink
+                to="/plans"
+                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-gray-50 dark:bg-surface-raised/50 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-surface-border rounded-xl hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan transition-all active:scale-95 flex items-center gap-2"
+            >
+                <span class="text-xs">📋</span>
+                Plans
+            </NuxtLink>
             <button
                 @click="triggerImport"
                 class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-gray-100 dark:bg-surface-raised text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-surface-hover transition-all active:scale-95"

@@ -33,6 +33,7 @@ watch(searchQuery, () => {
 })
 const selectedTask = ref<Task | null>(null)
 const showSettings = ref(false)
+const showApplyPlan = ref(false)
 const kanbanBoardRef = ref<{ resetAllSelections: () => void } | null>(null)
 
 function toggleSettings() {
@@ -332,6 +333,13 @@ onUnmounted(() => stopSocket())
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
             </svg>
+          </button>
+          <button
+            @click="showApplyPlan = true"
+            class="p-2.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl hover:bg-gray-50 dark:hover:bg-surface-raised transition-all active:scale-95 shadow-sm"
+            title="Apply Task Plan"
+          >
+            <span class="text-sm">📋</span>
           </button>
           <button
             @click="showSettings = !showSettings"
@@ -718,6 +726,8 @@ onUnmounted(() => stopSocket())
     >
       <MassActionModal v-if="showMassActionModal" @close="showMassActionModal = false" @confirm="performMassUpdate" />
     </transition>
+
+    <ApplyPlanModal v-if="showApplyPlan" :board-id="boardId" @close="showApplyPlan = false" @applied="fetchTasks" />
     </div>
   </main>
 </template>
