@@ -69,6 +69,7 @@ toggles in board settings):
 | `update-task-status`  | Move a task between columns                           |
 | `submit-for-review`   | Mark a task ready for human review                    |
 | `request-corrections` | Create a linked correction task off a reviewed task   |
+| `reject-task`         | Reject a task review and move it back to todo (AI review) |
 | `create-task`         | File a new task on the board                          |
 | `delete-task`         | Remove a task (use sparingly)                         |
 | `generate-changelog`  | Generate a markdown changelog based on completed (done) tasks |
@@ -97,12 +98,14 @@ capacity on this project), follow this loop:
    full task with `get-task` and any prior `get-comments`.
 4. **Accept it.** Call `accept-task` with a stable, unique `agentName` (e.g. `"<model>-<handle>"`). This locks the task to
    you and moves it to `in_progress`. This helps humans and other agents identify who is working on the task.
-5. **Work in this repository.** Make the code changes the task describes,
-   following the project's existing conventions, tests, and lint rules.
+5. **Work in this repository.** Make the code changes the task describes, or 
+   if you are reviewing, verify the implementation.
 6. **Communicate.** Use `add-comment` for non-trivial decisions, blockers,
    or questions. Comments are visible to humans on the board in real time.
-7. **Submit for review.** When done, comment a summary of your changes as a "Task Result" in markdown, then call `submit-for-review` with the task ID.
-   Do **not** mark tasks `done` yourself — humans (or a reviewer agent) move
+7. **Submit for review.** When done, comment a summary of your changes as a "Task Result" in markdown, then call `submit-for-review` with the task ID. 
+   If you were reviewing, call `update-task-status` to move it to `done` if it passes, 
+   or `reject-task` if it fails.
+   Do **not** mark tasks `done` yourself unless you are reviewing another agent's task — humans (or a reviewer agent) move
    tasks from `review` to `done` after verifying.
 8. **Handle corrections.** If a human creates a correction task linked to your
    original (parent) task, treat it as a new top-priority item: accept it,

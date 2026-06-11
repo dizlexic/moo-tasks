@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { eq, and, isNull, inArray } from 'drizzle-orm'
 import { db } from '../db'
-import { tasks, comments, instructions, boards, boardColumns, users, boardMembers } from '../db/schema'
+import { tasks, comments, instructions, boards, boardColumns, users, boardMembers, tags, taskTags } from '../db/schema'
 import { generateId } from './id'
 import { emitTaskEvent } from './socket'
 import { reorderTasks } from './tasks'
@@ -28,6 +28,7 @@ export const MCP_FUNCTIONS = [
   'update-task-status',
   'submit-for-review',
   'request-corrections',
+  'reject-task',
   'accept-task',
   'add-comment',
   'delete-task',
@@ -143,7 +144,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
         const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
         const existing = existingResults[0]
         if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
-        if (getPermissions(existing.status).move === false || getPermissions(status).move === false) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
+        if (!getPermissions(existing.status).move || !getPermissions(status).move) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
 
         await db.update(tasks).set({ status, updatedAt: new Date() }).where(eq(tasks.id, taskId))
         const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
@@ -154,7 +155,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     )
   }
 
-  if (enabledFunctions['submit-for-review'] !== false) {
+  if (enabledFunctions['submit-for-review']) {
     server.tool(
       'submit-for-review',
       'Submit a task for review. Moves the task to review status.',
@@ -176,7 +177,6 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     )
   }
 
-  /*
   if (enabledFunctions['request-corrections'] !== false) {
     server.tool(
       'request-corrections',
@@ -202,6 +202,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
           status: 'todo' as const,
           priority: priority || existing.priority || ('medium' as const),
           order: 0,
+          boardTaskId: await getNextBoardTaskId(boardId),
           assignee: null,
           parentTaskId: taskId,
           createdAt: now,
@@ -221,9 +222,77 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       },
     )
   }
-  */
 
-  if (enabledFunctions['accept-task'] !== false) {
+  if (enabledFunctions['reject-task'] !== false) {
+    server.tool(
+      'reject-task',
+      'Reject a task review and move it back to todo with a comment and correction tag. Use this for AI review.',
+      {
+        taskId: z.string().describe('The unique task ID'),
+        reason: z.string().min(1).describe('The reason for rejection'),
+      },
+      async ({ taskId, reason }) => {
+        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'reject-task', data: { taskId, reason } })
+        const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
+        const existing = existingResults[0]
+        if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
+
+        if (existing.status !== 'review' && existing.status !== 'in_progress') {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: 'Only tasks in review or in_progress can be rejected' }) }], isError: true }
+        }
+
+        const now = new Date()
+
+        // 1. Add comment
+        await db.insert(comments).values({
+          id: generateId(),
+          taskId,
+          boardId,
+          author: 'AI Reviewer',
+          content: `### Review Failed\n\n${reason}`,
+          createdAt: now,
+        })
+
+        // 2. Ensure "correction" tag exists
+        let tagResults = await db.select().from(tags).where(and(eq(tags.boardId, boardId), eq(tags.name, 'correction')))
+        let tagId = tagResults[0]?.id
+        if (!tagId) {
+          tagId = generateId()
+          await db.insert(tags).values({
+            id: tagId,
+            boardId,
+            name: 'correction',
+            color: '#ef4444',
+            icon: 'wrench'
+          })
+        }
+
+        // 3. Link tag to task
+        const taskTagResults = await db.select().from(taskTags).where(and(eq(taskTags.taskId, taskId), eq(taskTags.tagId, tagId)))
+        if (taskTagResults.length === 0) {
+          await db.insert(taskTags).values({ taskId, tagId })
+        }
+
+        // 4. Move task back to todo and clear assignee
+        await db.update(tasks).set({
+          status: 'todo',
+          assignee: null,
+          updatedAt: now
+        }).where(eq(tasks.id, taskId))
+
+        const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
+        const updated = updatedResults[0]
+        if (updated) {
+          emitTaskEvent(boardId, 'task:updated', updated)
+          emitTaskEvent(boardId, 'comment:created', { taskId })
+        }
+
+        return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task rejected and moved back to todo with correction tag', task: updated }) }] }
+      },
+    )
+  }
+
+  if (enabledFunctions['accept-task']) {
     server.tool(
       'accept-task',
       'Accept a task by assigning yourself and moving it to in_progress.',
@@ -250,7 +319,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     )
   }
 
-  if (enabledFunctions['add-comment'] !== false) {
+  if (enabledFunctions['add-comment']) {
     server.tool(
       'add-comment',
       'Add a comment to a task.',
