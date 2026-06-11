@@ -127,6 +127,17 @@ async function logout() {
                 Dashboard
               </NuxtLink>
               <NuxtLink
+                to="/account"
+                class="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
+                @click="showUserDropdown = false"
+                title="Account settings"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Account
+              </NuxtLink>
+              <NuxtLink
                 to="/settings/instructions"
                 class="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
                 @click="showUserDropdown = false"
@@ -174,7 +185,7 @@ async function logout() {
       <div class="flex flex-col items-center gap-4">
         <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-600">
           Built with <span class="text-neon-pink" aria-label="love">♥</span> by 🐄 <a href="https://buymeacoffee.com/dizlexic" target="_blank" rel="noopener noreferrer" class="hover:text-neon-cyan transition-all">dizlexic</a> •
-          <NuxtLink to="/faq" class="hover:text-neon-cyan transition-all">FAQ</NuxtLink> •
+          <NuxtLink to="/faq" target="_blank" class="hover:text-neon-cyan transition-all">FAQ</NuxtLink> •
           <NuxtLink to="/about" class="hover:text-neon-cyan transition-all">About</NuxtLink> •
           <a
             href="https://github.com/dizlexic/moo-agent-board"
