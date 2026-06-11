@@ -137,8 +137,8 @@ capacity on this project), follow this loop:
 
 To ensure continuous project improvement, follow this loop when no tasks are assigned or the board is empty:
 
-1. **Discovery:** If `list-tasks` returns zero `todo` tasks, analyze the project documentation (`README.md`, `docs/`, etc.) and the codebase to identify gaps in tests, documentation, or features.
-2. **Generation:** Create new discrete tasks using `create-task`. Each task should focus on one of the following areas:
+1. **Discovery:** If `list-tasks` returns zero `todo` tasks, run the discovery script: `node scripts/discover-gaps.mjs`. This script analyzes the codebase and identifies gaps in tests, documentation, or features.
+2. **Generation:** Create new discrete tasks using the `create-task` tool based on the findings from the discovery script. Each task should focus on one of the following areas:
    - **Test implementation:** Unit, integration, or E2E tests for existing or new logic.
    - **Performance & Fuzzing:** Add benchmarks or fuzz tests to stress-test critical components.
    - **Security:** Audit sensitive areas (auth, DB access) and add security-focused tests.
