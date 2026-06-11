@@ -5,6 +5,7 @@ import MarkdownIt from 'markdown-it'
 
 const md = new MarkdownIt()
 const props = defineProps<{ taskId: string; boardId: string }>()
+const emit = defineEmits<{ 'comment-added': [] }>()
 const { addComment, fetchComments } = useTasks(props.boardId)
 
 const comments = ref<Comment[]>([])
@@ -15,6 +16,7 @@ function renderMarkdown(content: string) {
 }
 
 const newComment = ref('')
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const loading = ref(false)
 const submitting = ref(false)
 const error = ref('')
@@ -39,6 +41,7 @@ async function onSubmit() {
     const comment = await addComment(props.taskId, newComment.value.trim())
     comments.value.push(comment as Comment)
     newComment.value = ''
+    emit('comment-added')
   } catch (e: any) {
     error.value = e.data?.message || 'Failed to add comment'
   } finally {
@@ -54,6 +57,12 @@ function formatDate(date: string | Date) {
     minute: '2-digit'
   })
 }
+
+function focusInput() {
+  textareaRef.value?.focus()
+}
+
+defineExpose({ focusInput })
 
 onMounted(loadComments)
 </script>
@@ -111,6 +120,7 @@ onMounted(loadComments)
         <div v-if="error" class="text-xs text-neon-red font-bold mb-2">{{ error }}</div>
         <div class="relative">
           <textarea
+            ref="textareaRef"
             v-model="newComment"
             rows="2"
             class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none resize-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-600 shadow-sm"

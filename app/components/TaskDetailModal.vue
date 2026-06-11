@@ -34,6 +34,12 @@ const error = ref('')
 const linkCopied = ref(false)
 const showTimeline = ref(false)
 const modalRef = ref<HTMLElement | null>(null)
+const commentsRef = ref<any>(null)
+const commentAdded = ref(false)
+
+const isCorrectionMode = ref(false)
+const originalStatus = ref<TaskStatus | null>(null)
+const showCorrectionExitModal = ref(false)
 
 watch(description, () => {
   if (hasChanged.value) {
@@ -49,8 +55,71 @@ watch([title, priority, difficulty, status, assignee, isHumanOnly], () => {
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
+    handleClose()
+  }
+}
+
+async function handleClose() {
+  if (isCorrectionMode.value && !commentAdded.value) {
+    showCorrectionExitModal.value = true
+  } else {
     emit('close')
   }
+}
+
+async function onStartCorrection() {
+  originalStatus.value = status.value
+  status.value = 'todo'
+  isCorrectionMode.value = true
+  commentAdded.value = false
+
+  // Ensure 'correction' tag exists and add it
+  let correctionTag = tags.value.find(t => t.name.toLowerCase() === 'correction')
+  if (!correctionTag) {
+    try {
+      correctionTag = await createTag({ name: 'correction', color: '#ff4d4d', icon: 'wrench' }) as any
+    } catch (e) {
+      console.error('Failed to create correction tag', e)
+    }
+  }
+
+  if (correctionTag) {
+    const hasTag = selectedTagIds.value.includes(correctionTag.id)
+    if (!hasTag) {
+      selectedTagIds.value = [...selectedTagIds.value, correctionTag.id]
+    }
+  }
+
+  await saveTask(false)
+  nextTick(() => {
+    commentsRef.value?.focusInput()
+  })
+}
+
+async function cancelCorrectionExit() {
+  showCorrectionExitModal.value = false
+  nextTick(() => {
+    commentsRef.value?.focusInput()
+  })
+}
+
+async function continueCorrectionExit() {
+  isCorrectionMode.value = false
+  showCorrectionExitModal.value = false
+
+  // Revert status
+  if (originalStatus.value) {
+    status.value = originalStatus.value
+  }
+
+  // Remove correction tag
+  const correctionTag = tags.value.find(t => t.name.toLowerCase() === 'correction')
+  if (correctionTag) {
+    selectedTagIds.value = selectedTagIds.value.filter(id => id !== correctionTag.id)
+  }
+
+  await saveTask(false)
+  emit('close')
 }
 
 onMounted(() => {
@@ -225,7 +294,7 @@ function openParentTask() {
           <div v-else-if="parentTaskId" class="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20">
             <span>↩ Correction</span>
           </div>
-          <button @click="emit('close')" class="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors text-2xl leading-none p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-raised" aria-label="Close dialog">&times;</button>
+          <button @click="handleClose" class="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors text-2xl leading-none p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-raised" aria-label="Close dialog">&times;</button>
         </div>
       </div>
 
@@ -237,12 +306,12 @@ function openParentTask() {
           <form @submit.prevent="onSave" id="task-edit-form" class="space-y-6">
             <div class="space-y-1.5">
               <label for="task-title" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Title</label>
-              <input id="task-title" v-model="title" @blur="debouncedSaveTask(false)" type="text" required class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-600" placeholder="Task title..." />
+              <input id="task-title" v-model="title" @blur="debouncedSaveGeneral(false)" type="text" required class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-600" placeholder="Task title..." />
             </div>
 
             <div class="space-y-1.5">
               <label for="task-description" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
-              <textarea id="task-description" v-model="description" @blur="debouncedSaveTask(false)" rows="6" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none resize-none transition-all leading-relaxed placeholder:text-gray-400 dark:placeholder:text-gray-600" placeholder="Describe the task in detail..." />
+              <textarea id="task-description" v-model="description" @blur="debouncedSaveGeneral(false)" rows="6" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none resize-none transition-all leading-relaxed placeholder:text-gray-400 dark:placeholder:text-gray-600" placeholder="Describe the task in detail..." />
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -263,7 +332,7 @@ function openParentTask() {
               <div class="space-y-1.5 flex items-end">
                 <button
                   type="button"
-                  @click="isHumanOnly = !isHumanOnly; debouncedSaveTask(false)"
+                  @click="isHumanOnly = !isHumanOnly; debouncedSaveGeneral(false)"
                   class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised hover:border-neon-cyan/50 transition-all"
                 >
                   <span class="text-sm" aria-hidden="true">{{ isHumanOnly ? '👤' : '🤖' }}</span>
@@ -288,7 +357,7 @@ function openParentTask() {
               <div class="space-y-1.5">
                 <label for="task-difficulty" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Difficulty</label>
                 <div class="relative">
-                  <select id="task-difficulty" v-model="difficulty" @change="debouncedSaveTask" class="w-full appearance-none border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all cursor-pointer">
+                  <select id="task-difficulty" v-model="difficulty" @change="debouncedSaveGeneral" class="w-full appearance-none border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all cursor-pointer">
                     <option :value="1">1</option>
                     <option :value="2">2</option>
                     <option :value="3">3</option>
@@ -318,11 +387,22 @@ function openParentTask() {
             </div>
 
             <!-- Correction Task Section -->
-            <div v-if="status === 'review' || status === 'done'" class="bg-gray-50 dark:bg-surface-raised/30 rounded-2xl p-5 border border-gray-100 dark:border-surface-border/30 space-y-4">
+            <div v-if="status === 'review' || status === 'done' || isCorrectionMode" class="bg-gray-50 dark:bg-surface-raised/30 rounded-2xl p-5 border border-gray-100 dark:border-surface-border/30 space-y-4">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <span class="text-neon-orange" aria-hidden="true">↩</span>
                   <h3 class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300">Corrections</h3>
+                </div>
+                <button
+                  v-if="!isCorrectionMode"
+                  type="button"
+                  @click="onStartCorrection"
+                  class="text-[10px] font-bold uppercase tracking-widest bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20 px-3 py-1.5 rounded-xl hover:bg-neon-orange/20 transition-all"
+                >
+                  Request Correction
+                </button>
+                <div v-else class="text-[10px] font-bold uppercase tracking-widest text-neon-orange animate-pulse">
+                  Correction in progress...
                 </div>
               </div>
 
@@ -395,9 +475,30 @@ function openParentTask() {
               {{ showTimeline ? 'Hide Timeline' : 'Show Timeline' }}
             </button>
           </div>
-          <TaskComments :task-id="task.id" :board-id="boardId" />
+          <TaskComments ref="commentsRef" :task-id="task.id" :board-id="boardId" @comment-added="commentAdded = true" />
           <TaskTimeline v-if="showTimeline" class="mt-6" :task-id="task.id" :board-id="boardId" />
         </div>
+      </div>
+    </div>
+  </div>
+  <!-- Correction Exit Confirmation -->
+  <div v-if="showCorrectionExitModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-white dark:bg-surface-card rounded-2xl p-6 shadow-2xl w-full max-w-sm border border-gray-200 dark:border-surface-border animate-in fade-in zoom-in duration-200">
+      <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Unfinished Correction</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">You are trying to exit without adding correction details. Would you like to continue and revert the task or stay and add a comment?</p>
+      <div class="flex flex-col gap-3">
+        <button
+          @click="cancelCorrectionExit"
+          class="w-full py-2.5 text-xs font-black uppercase tracking-widest bg-neon-cyan text-cyan-950 rounded-xl hover:scale-[1.02] transition-all"
+        >
+          Stay & Comment
+        </button>
+        <button
+          @click="continueCorrectionExit"
+          class="w-full py-2.5 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-all"
+        >
+          Continue & Revert
+        </button>
       </div>
     </div>
   </div>
