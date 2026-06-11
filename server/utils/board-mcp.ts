@@ -60,187 +60,217 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     version: '2.0.0',
   })
 
-  if (enabledFunctions['list-tasks']) {
-    server.tool(
-      'list-tasks',
-      'List tasks on this board. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',
-      {
-        status: z.enum(['todo', 'in_progress', 'review']).optional().describe('Filter by task status'),
-        priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Filter by task priority'),
-        limit: z.number().int().positive().optional().describe('Limit the number of tasks returned (default 10 for todo)'),
-      },
-      async ({ status, priority, limit }) => {
-        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority, limit } })
-        
-        const allowedStatuses = ['todo', 'in_progress'];
-        if (board.allowAiReview) {
-          allowedStatuses.push('review');
-        }
+  server.tool(
+    'list-tasks',
+    'List tasks on this board. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',
+    {
+      status: z.enum(['todo', 'in_progress', 'review']).optional().describe('Filter by task status'),
+      priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Filter by task priority'),
+      limit: z.number().int().positive().optional().describe('Limit the number of tasks returned (default 10 for todo)'),
+    },
+    async ({ status, priority, limit }) => {
+      const [board] = await db.select().from(boards).where(eq(boards.id, boardId))
+      const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
+      if (!enabledFunctions['list-tasks']) throw new Error('Tool disabled')
 
-        const conditions = [
-          eq(tasks.boardId, boardId),
-          inArray(tasks.status, allowedStatuses as any)
-        ]
-        if (status) conditions.push(eq(tasks.status, status))
-        if (priority) conditions.push(eq(tasks.priority, priority))
+      const columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId))
+      const getPermissions = (status: string) => {
+        const column = columns.find(c => c.status === status)
+        return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true }
+      }
 
-        const result = await db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
-        let filteredTasks = result.filter(t => getPermissions(t.status).view !== false)
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority, limit } })
+      
+      const allowedStatuses = ['todo', 'in_progress'];
+      if (board.allowAiReview) {
+        allowedStatuses.push('review');
+      }
 
-        const effectiveLimit = limit || (status === 'todo' ? 10 : undefined)
-        if (effectiveLimit) {
-          filteredTasks = filteredTasks.slice(0, effectiveLimit)
-        }
+      const conditions = [
+        eq(tasks.boardId, boardId),
+        inArray(tasks.status, allowedStatuses as any)
+      ]
+      if (status) conditions.push(eq(tasks.status, status))
+      if (priority) conditions.push(eq(tasks.priority, priority))
 
-        return { content: [{ type: 'text', text: JSON.stringify({ tasks: filteredTasks, count: filteredTasks.length }) }] }
-      },
-    )
-  }
+      const result = await db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
+      let filteredTasks = result.filter(t => getPermissions(t.status).view !== false)
 
-  if (enabledFunctions['get-task']) {
-    server.tool(
-      'get-task',
-      'Get full details of a task by ID.',
-      { taskId: z.string().describe('The unique task ID') },
-      async ({ taskId }) => {
-        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'get-task', data: { taskId } })
-        const taskResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
-        const task = taskResults[0]
-        if (!task) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
-        return { content: [{ type: 'text', text: JSON.stringify(task) }] }
-      },
-    )
-  }
+      const effectiveLimit = limit || (status === 'todo' ? 10 : undefined)
+      if (effectiveLimit) {
+        filteredTasks = filteredTasks.slice(0, effectiveLimit)
+      }
 
-  if (enabledFunctions['create-task'] !== false) {
-    server.tool(
-      'create-task',
-      'Create a new task on this board.',
-      {
-        title: z.string().min(1).describe('Task title'),
-        description: z.string().optional().describe('Task description'),
-        priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Task priority'),
-        parentTaskId: z.string().optional().describe('Parent task ID if this is a correction/follow-up task'),
-      },
-      async ({ title, description, priority, parentTaskId }) => {
-        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'create-task', data: { title, priority, parentTaskId } })
-        if (!getPermissions('backlog').add) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
+      return { content: [{ type: 'text', text: JSON.stringify({ tasks: filteredTasks, count: filteredTasks.length }) }] }
+    },
+  )
 
-        const now = new Date()
-        const boardTaskId = await getNextBoardTaskId(boardId)
-        const newTask = {
-          id: generateId(),
-          boardId,
-          title: title.trim(),
-          description: description?.trim() || '',
-          status: 'backlog' as const,
-          priority: priority || ('medium' as const),
-          order: 0,
-          boardTaskId,
-          assignee: null,
-          parentTaskId: parentTaskId?.trim() || null,
-          createdAt: now,
-          updatedAt: now,
-        }
-        await db.insert(tasks).values(newTask)
-        await reorderTasks(boardId, 'backlog', newTask.id, 0)
-        emitTaskEvent(boardId, 'task:created', newTask)
-        return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task created', task: newTask }) }] }
-      },
-    )
-  }
+  server.tool(
+    'get-task',
+    'Get full details of a task by ID.',
+    { taskId: z.string().describe('The unique task ID') },
+    async ({ taskId }) => {
+      const [board] = await db.select().from(boards).where(eq(boards.id, boardId))
+      const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
+      if (!enabledFunctions['get-task']) throw new Error('Tool disabled')
 
-  if (enabledFunctions['update-task-status'] !== false) {
-    server.tool(
-      'update-task-status',
-      'Update a task\'s status.',
-      {
-        taskId: z.string().describe('The unique task ID'),
-        status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done']).describe('New status'),
-      },
-      async ({ taskId, status }) => {
-        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'update-task-status', data: { taskId, status } })
-        const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
-        const existing = existingResults[0]
-        if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
-        if (!getPermissions(existing.status).move || !getPermissions(status).move) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'get-task', data: { taskId } })
+      const taskResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
+      const task = taskResults[0]
+      if (!task) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
+      return { content: [{ type: 'text', text: JSON.stringify(task) }] }
+    },
+  )
 
-        await db.update(tasks).set({ status, updatedAt: new Date() }).where(eq(tasks.id, taskId))
-        const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
-        const updated = updatedResults[0]
-        if (updated) emitTaskEvent(boardId, 'task:updated', updated)
-        return { content: [{ type: 'text', text: JSON.stringify({ message: `Task status updated to ${status}`, task: updated }) }] }
-      },
-    )
-  }
+  server.tool(
+    'create-task',
+    'Create a new task on this board.',
+    {
+      title: z.string().min(1).describe('Task title'),
+      description: z.string().optional().describe('Task description'),
+      priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Task priority'),
+      parentTaskId: z.string().optional().describe('Parent task ID if this is a correction/follow-up task'),
+    },
+    async ({ title, description, priority, parentTaskId }) => {
+      const [board] = await db.select().from(boards).where(eq(boards.id, boardId))
+      const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
+      if (enabledFunctions['create-task'] === false) throw new Error('Tool disabled')
 
-  if (enabledFunctions['submit-for-review']) {
-    server.tool(
-      'submit-for-review',
-      'Submit a task for review. Moves the task to review status.',
-      {
-        taskId: z.string().describe('The unique task ID'),
-      },
-      async ({ taskId }) => {
-        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'submit-for-review', data: { taskId } })
-        const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
-        const existing = existingResults[0]
-        if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
+      const columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId))
+      const getPermissions = (status: string) => {
+        const column = columns.find(c => c.status === status)
+        return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true }
+      }
 
-        await db.update(tasks).set({ status: 'review', updatedAt: new Date() }).where(eq(tasks.id, taskId))
-        const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
-        const updated = updatedResults[0]
-        if (updated) emitTaskEvent(boardId, 'task:updated', updated)
-        return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task submitted for review', task: updated }) }] }
-      },
-    )
-  }
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'create-task', data: { title, priority, parentTaskId } })
+      if (!getPermissions('backlog').add) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
 
-  if (enabledFunctions['request-corrections'] !== false) {
-    server.tool(
-      'request-corrections',
-      'Create a correction task linked to a reviewed task. The original task stays in review.',
-      {
-        taskId: z.string().describe('The original task ID that needs corrections'),
-        title: z.string().min(1).describe('Title for the correction task'),
-        description: z.string().optional().describe('Description of corrections needed'),
-        priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Priority for the correction task'),
-      },
-      async ({ taskId, title, description, priority }) => {
-        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'request-corrections', data: { taskId, title } })
-        const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
-        const existing = existingResults[0]
-        if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Original task not found' }) }], isError: true }
+      const now = new Date()
+      const boardTaskId = await getNextBoardTaskId(boardId)
+      const newTask = {
+        id: generateId(),
+        boardId,
+        title: title.trim(),
+        description: description?.trim() || '',
+        status: 'backlog' as const,
+        priority: priority || ('medium' as const),
+        order: 0,
+        boardTaskId,
+        assignee: null,
+        parentTaskId: parentTaskId?.trim() || null,
+        createdAt: now,
+        updatedAt: now,
+      }
+      await db.insert(tasks).values(newTask)
+      await reorderTasks(boardId, 'backlog', newTask.id, 0)
+      emitTaskEvent(boardId, 'task:created', newTask)
+      return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task created', task: newTask }) }] }
+    },
+  )
 
-        const now = new Date()
-        const correctionTask = {
-          id: generateId(),
-          boardId,
-          title: title.trim(),
-          description: description?.trim() || '',
-          status: 'todo' as const,
-          priority: priority || existing.priority || ('medium' as const),
-          order: 0,
-          boardTaskId: await getNextBoardTaskId(boardId),
-          assignee: null,
-          parentTaskId: taskId,
-          createdAt: now,
-          updatedAt: now,
-        }
-        await db.insert(tasks).values(correctionTask)
-        await reorderTasks(boardId, 'todo', correctionTask.id, 0)
-        emitTaskEvent(boardId, 'task:created', correctionTask)
+  server.tool(
+    'update-task-status',
+    'Update a task\'s status.',
+    {
+      taskId: z.string().describe('The unique task ID'),
+      status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done']).describe('New status'),
+    },
+    async ({ taskId, status }) => {
+      const [board] = await db.select().from(boards).where(eq(boards.id, boardId))
+      const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
+      if (enabledFunctions['update-task-status'] === false) throw new Error('Tool disabled')
 
-        // Move original task back to in_progress
-        await db.update(tasks).set({ status: 'in_progress', updatedAt: now }).where(eq(tasks.id, taskId))
-        const updatedOriginalResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
-        const updatedOriginal = updatedOriginalResults[0]
-        if (updatedOriginal) emitTaskEvent(boardId, 'task:updated', updatedOriginal)
+      const columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId))
+      const getPermissions = (status: string) => {
+        const column = columns.find(c => c.status === status)
+        return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true }
+      }
 
-        return { content: [{ type: 'text', text: JSON.stringify({ message: 'Correction task created, original moved back to in_progress', correctionTask, originalTaskId: taskId }) }] }
-      },
-    )
-  }
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'update-task-status', data: { taskId, status } })
+      const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
+      const existing = existingResults[0]
+      if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
+      if (!getPermissions(existing.status).move || !getPermissions(status).move) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
+
+      await db.update(tasks).set({ status, updatedAt: new Date() }).where(eq(tasks.id, taskId))
+      const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
+      const updated = updatedResults[0]
+      if (updated) emitTaskEvent(boardId, 'task:updated', updated)
+      return { content: [{ type: 'text', text: JSON.stringify({ message: `Task status updated to ${status}`, task: updated }) }] }
+    },
+  )
+
+  server.tool(
+    'submit-for-review',
+    'Submit a task for review. Moves the task to review status.',
+    {
+      taskId: z.string().describe('The unique task ID'),
+    },
+    async ({ taskId }) => {
+      const [board] = await db.select().from(boards).where(eq(boards.id, boardId))
+      const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
+      if (!enabledFunctions['submit-for-review']) throw new Error('Tool disabled')
+
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'submit-for-review', data: { taskId } })
+      const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
+      const existing = existingResults[0]
+      if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
+
+      await db.update(tasks).set({ status: 'review', updatedAt: new Date() }).where(eq(tasks.id, taskId))
+      const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
+      const updated = updatedResults[0]
+      if (updated) emitTaskEvent(boardId, 'task:updated', updated)
+      return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task submitted for review', task: updated }) }] }
+    },
+  )
+
+  server.tool(
+    'request-corrections',
+    'Create a correction task linked to a reviewed task. The original task stays in review.',
+    {
+      taskId: z.string().describe('The original task ID that needs corrections'),
+      title: z.string().min(1).describe('Title for the correction task'),
+      description: z.string().optional().describe('Description of corrections needed'),
+      priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Priority for the correction task'),
+    },
+    async ({ taskId, title, description, priority }) => {
+      const [board] = await db.select().from(boards).where(eq(boards.id, boardId))
+      const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
+      if (enabledFunctions['request-corrections'] === false) throw new Error('Tool disabled')
+
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'request-corrections', data: { taskId, title } })
+      const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
+      const existing = existingResults[0]
+      if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Original task not found' }) }], isError: true }
+
+      const now = new Date()
+      const correctionTask = {
+        id: generateId(),
+        boardId,
+        title: title.trim(),
+        description: description?.trim() || '',
+        status: 'todo' as const,
+        priority: priority || existing.priority || ('medium' as const),
+        order: 0,
+        boardTaskId: await getNextBoardTaskId(boardId),
+        assignee: null,
+        parentTaskId: taskId,
+        createdAt: now,
+        updatedAt: now,
+      }
+      await db.insert(tasks).values(correctionTask)
+      await reorderTasks(boardId, 'todo', correctionTask.id, 0)
+      emitTaskEvent(boardId, 'task:created', correctionTask)
+
+      // Move original task back to in_progress
+      await db.update(tasks).set({ status: 'in_progress', updatedAt: now }).where(eq(tasks.id, taskId))
+      const updatedOriginalResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
+      const updatedOriginal = updatedOriginalResults[0]
+      if (updatedOriginal) emitTaskEvent(boardId, 'task:updated', updatedOriginal)
+
+      return { content: [{ type: 'text', text: JSON.stringify({ message: 'Correction task created, original moved back to in_progress', correctionTask, originalTaskId: taskId }) }] }
+    },
+  )
 
   if (enabledFunctions['reject-task'] !== false) {
     server.tool(
