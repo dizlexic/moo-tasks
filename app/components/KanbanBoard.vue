@@ -86,6 +86,7 @@ const columns = computed(() => {
 const emit = defineEmits<{ 
   taskClick: [task: Task]
   openMassAction: [taskIds: string[]]
+  generateChangelog: []
 }>()
 
 async function onTaskMoved(taskId: string, newStatus: string, newIndex: number) {
@@ -125,6 +126,7 @@ async function onArchiveAll() {
       @contextmenu="onContextMenu"
       @archive-all="onArchiveAll"
       @open-mass-action="emit('openMassAction', $event)"
+      @generate-changelog="emit('generateChangelog')"
     />
     <TaskContextMenu ref="contextMenu" :board-id="boardId" />
   </div>

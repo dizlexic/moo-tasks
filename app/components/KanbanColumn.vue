@@ -17,6 +17,7 @@ const emit = defineEmits<{
   contextmenu: [event: MouseEvent, task: Task]
   archiveAll: []
   openMassAction: [taskIds: string[]]
+  generateChangelog: []
 }>()
 
 const localTasks = ref<Task[]>([...props.tasks])
@@ -107,6 +108,13 @@ defineExpose({ resetSelection })
           class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
         >
           Archive All
+        </button>
+        <button
+          v-if="status === 'done' && tasks.length > 0"
+          @click="emit('generateChangelog')"
+          class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+        >
+          Changelog
         </button>
       </div>
       <div v-if="isSelectMode && selectedTaskIds.size > 0" class="flex gap-2">

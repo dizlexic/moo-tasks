@@ -23,6 +23,7 @@ const toolDescriptions: Record<string, string> = {
   'reject-task': 'Reject a task review and move it back to todo (AI review)',
   'create-task': 'File a new task on the board',
   'delete-task': 'Remove a task (use sparingly)',
+  'generate-changelog': 'Generate a markdown changelog based on completed (done) tasks',
   'create-board': 'Create a new board (requires account token or board owner context)',
   'get-installation-instructions': 'Get instructions for installing/setting up Moo Tasks'
 }

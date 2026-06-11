@@ -3,6 +3,7 @@ import type { Task, Board, BoardLog } from '#server/db/schema'
 
 const route = useRoute()
 const boardId = route.params.id as string
+const activeBoardTransfer = ref<any>(null)
 const currentBoardName = useState<string | null>('currentBoardName')
 
 const { user } = useUserSession()
@@ -13,7 +14,6 @@ const { fetchTasks, tasksByStatus, moveTask, createTask, updateTask, deleteTask,
 const { tags, fetchTags } = useTags(boardId)
 
 const boardLogs = ref<BoardLog[]>([])
-const pendingTransfer = ref<any>(null)
 const exportComments = ref(false)
 const recipientEmail = ref('')
 
@@ -34,6 +34,7 @@ watch(searchQuery, () => {
 const selectedTask = ref<Task | null>(null)
 const showSettings = ref(false)
 const showApplyPlan = ref(false)
+const showChangelog = ref(false)
 const kanbanBoardRef = ref<{ resetAllSelections: () => void } | null>(null)
 
 function toggleSettings() {
@@ -60,7 +61,7 @@ watch(() => board.value, (newBoard) => {
     currentBoardDescription.value = newBoard.description
     newName.value = newBoard.name
     newDescription.value = newBoard.description || ''
-    pendingTransfer.value = newBoard.transfer
+    activeBoardTransfer.value = newBoard.transfer
     const enabledFunctions = (newBoard.mcpEnabledFunctions as Record<string, boolean>) || {}
     allFunctionsEnabled.value = !Object.values(enabledFunctions).includes(false)
   }
@@ -480,8 +481,8 @@ onUnmounted(() => stopSocket())
 
               <div class="mt-8 border-t border-gray-200 dark:border-surface-border pt-8">
                 <h3 class="text-xs font-bold uppercase tracking-widest text-gray-900 dark:text-white mb-4">Transfer Ownership</h3>
-                <div v-if="pendingTransfer" class="bg-neon-orange/10 border border-neon-orange/20 rounded-xl p-4">
-                  <p class="text-sm text-gray-700 dark:text-gray-300">A pending transfer to {{ pendingTransfer.recipientEmail }} exists.</p>
+                <div v-if="activeBoardTransfer" class="bg-neon-orange/10 border border-neon-orange/20 rounded-xl p-4">
+                  <p class="text-sm text-gray-700 dark:text-gray-300">A pending transfer to {{ activeBoardTransfer.recipientEmail }} exists.</p>
                   <button @click="cancelTransfer" class="mt-2 text-xs font-bold text-red-600 dark:text-neon-red">Cancel Transfer</button>
                 </div>
                 <div v-else class="flex gap-2">
@@ -490,7 +491,7 @@ onUnmounted(() => stopSocket())
                 </div>
               </div>
 
-              <div v-if="pendingTransfer && pendingTransfer.recipientEmail === userEmail" class="mt-8 border-t border-gray-200 dark:border-surface-border pt-8">
+              <div v-if="activeBoardTransfer && activeBoardTransfer.recipientEmail === userEmail" class="mt-8 border-t border-gray-200 dark:border-surface-border pt-8">
                 <h3 class="text-xs font-bold uppercase tracking-widest text-gray-900 dark:text-white mb-4">Accept Ownership</h3>
                 <button @click="acceptTransfer" class="text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl bg-neon-cyan text-white">Accept Ownership</button>
               </div>
@@ -696,8 +697,17 @@ onUnmounted(() => stopSocket())
                    :tags="tags"
                    @task-click="selectedTask = $event"
                    @open-mass-action="openMassAction"
+                   @generate-changelog="showChangelog = true"
       />
-      <TaskListView v-else :board-id="boardId" :show-archive="showArchive" @task-click="selectedTask = $event" />
+      <TaskListView v-else 
+                    ref="kanbanBoardRef"
+                    :board-id="boardId" 
+                    :show-archive="showArchive" 
+                    :search-query="searchQuery" 
+                    @task-click="selectedTask = $event" 
+                    @open-mass-action="openMassAction"
+                    @generate-changelog="showChangelog = true"
+      />
     </div>
 
     <transition
@@ -728,6 +738,7 @@ onUnmounted(() => stopSocket())
     </transition>
 
     <ApplyPlanModal v-if="showApplyPlan" :board-id="boardId" @close="showApplyPlan = false" @applied="fetchTasks" />
+    <ChangelogModal v-if="showChangelog" :board-id="boardId" @close="showChangelog = false" />
     </div>
   </main>
 </template>

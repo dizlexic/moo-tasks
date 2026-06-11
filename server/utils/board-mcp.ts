@@ -494,6 +494,68 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     )
   }
 
+  if (enabledFunctions['generate-changelog'] !== false) {
+    server.tool(
+      'generate-changelog',
+      'Generate a markdown changelog based on completed (done) tasks on this board.',
+      {
+        template: z.enum(['simple', 'detailed', 'priority']).optional().default('simple').describe('Changelog formatting template'),
+      },
+      async ({ template }) => {
+        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'tool:generate-changelog', data: { template } })
+        const doneTasks = await db.select().from(tasks)
+          .where(and(eq(tasks.boardId, boardId), eq(tasks.status, 'done')))
+          .orderBy(desc(tasks.updatedAt))
+
+        if (doneTasks.length === 0) {
+          return { content: [{ type: 'text', text: 'No tasks completed yet.' }] }
+        }
+
+        let changelog = `# Changelog - ${new Date().toLocaleDateString()}\n\n`
+
+        if (template === 'detailed') {
+          doneTasks.forEach(task => {
+            changelog += `### ${task.title}\n`
+            if (task.description) {
+              changelog += `${task.description}\n\n`
+            } else {
+              changelog += '_No description provided._\n\n'
+            }
+          })
+        } else if (template === 'priority') {
+          const byPriority: Record<string, typeof doneTasks> = {
+            critical: [],
+            high: [],
+            medium: [],
+            low: []
+          }
+          doneTasks.forEach(task => {
+            const p = task.priority || 'medium'
+            byPriority[p].push(task)
+          })
+
+          const priorities = ['critical', 'high', 'medium', 'low']
+          priorities.forEach(p => {
+            const priorityTasks = byPriority[p]
+            if (priorityTasks.length > 0) {
+              changelog += `## ${p.charAt(0).toUpperCase() + p.slice(1)} Priority\n`
+              priorityTasks.forEach(task => {
+                changelog += `- ${task.title}\n`
+              })
+              changelog += '\n'
+            }
+          })
+        } else {
+          doneTasks.forEach(task => {
+            changelog += `- ${task.title}\n`
+          })
+        }
+
+        return { content: [{ type: 'text', text: changelog }] }
+      },
+    )
+  }
+
   if (enabledFunctions['create-board'] !== false) {
     server.tool(
       'create-board',
