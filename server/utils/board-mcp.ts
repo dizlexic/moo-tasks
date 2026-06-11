@@ -60,6 +60,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     version: '2.0.0',
   })
 
+  console.log('Registering tool: list-tasks');
   server.tool(
     'list-tasks',
     'List tasks on this board. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',

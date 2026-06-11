@@ -9,6 +9,7 @@ import { logBoardEvent } from '../../../utils/logs'
 export default defineEventHandler(async (event) => {
   const boardId = getRouterParam(event, 'id')!
 
+  console.log('MCP Endpoint hit for board:', boardId);
   // Verify board exists. Board IDs are scoped to a single board so the MCP server
   // created below can only ever access tasks/comments for THIS board.
   const boardResults = await db.select().from(boards).where(eq(boards.id, boardId))
