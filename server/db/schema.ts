@@ -152,6 +152,29 @@ export const boardTransfers = mysqlTable('board_transfers', {
   updatedAt: timestamp('updated_at').notNull(),
 })
 
+export const plans = mysqlTable('plans', {
+  id: varchar('id', { length: 191 }).primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  isPublic: boolean('is_public').notNull().default(false),
+  creatorId: varchar('creator_id', { length: 191 }).references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+})
+
+export const planTasks = mysqlTable('plan_tasks', {
+  id: varchar('id', { length: 191 }).primaryKey(),
+  planId: varchar('plan_id', { length: 191 }).notNull().references(() => plans.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  priority: mysqlEnum('priority', ['low', 'medium', 'high', 'critical']).notNull().default('medium'),
+  order: int('order').notNull().default(0),
+  difficulty: int('difficulty'),
+  isHumanOnly: boolean('is_human_only').notNull().default(false),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+})
+
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Board = typeof boards.$inferSelect
@@ -163,6 +186,10 @@ export type BoardColumn = typeof boardColumns.$inferSelect
 export type NewBoardColumn = typeof boardColumns.$inferInsert
 export type BoardTransfer = typeof boardTransfers.$inferSelect
 export type NewBoardTransfer = typeof boardTransfers.$inferInsert
+export type Plan = typeof plans.$inferSelect
+export type NewPlan = typeof plans.$inferInsert
+export type PlanTask = typeof planTasks.$inferSelect
+export type NewPlanTask = typeof planTasks.$inferInsert
 export type Instruction = typeof instructions.$inferSelect
 export type NewInstruction = typeof instructions.$inferInsert
 export type Comment = typeof comments.$inferSelect
