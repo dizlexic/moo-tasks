@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { debounce } from '~/utils/debounce'
+import { slugify } from '~/utils/slug'
 import type { Task } from '#server/db/schema'
 import type { TaskPriority, TaskStatus } from '~/composables/useTasks'
 
