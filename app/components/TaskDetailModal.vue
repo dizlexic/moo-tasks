@@ -32,7 +32,6 @@ const debouncedSaveGeneral = debounce((closeModal = false) => saveTask(closeModa
 const debouncedSaveDescription = debounce((closeModal = false) => saveTask(closeModal), 30000)
 const confirmDelete = ref(false)
 const error = ref('')
-const linkCopied = ref(false)
 const showTimeline = ref(false)
 const modalRef = ref<HTMLElement | null>(null)
 const commentsRef = ref<any>(null)
@@ -152,14 +151,6 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
 })
 
-async function copyTaskLink() {
-  const origin = window.location.origin
-  const url = `${origin}/boards/${props.boardId}?taskId=${props.task.id}`
-  await navigator.clipboard.writeText(url)
-  linkCopied.value = true
-  setTimeout(() => { linkCopied.value = false }, 2000)
-}
-
 // Correction task
 const showCorrectionForm = ref(false)
 const correctionTitle = ref('')
@@ -234,7 +225,8 @@ async function onCreateCorrection() {
     // Add comment linking back to original task
     try {
       const origin = window.location.origin
-      const originalTaskLink = `${origin}/boards/${props.boardId}?taskId=${props.task.id}`
+      const slug = slugify(props.task.title)
+      const originalTaskLink = `${origin}/boards/${props.boardId}/tasks/${props.task.boardTaskId}/${slug}`
       await addComment(newTask.id, `Created from correction request on task: [${props.task.title}](${originalTaskLink})`)
     } catch (commentError) {
       console.error('Failed to add link comment:', commentError)
@@ -251,8 +243,7 @@ async function onCreateCorrection() {
   }
 }
 
-const parentTaskId = computed(() => (props.task as any).parentTaskId)
-const parentTask = computed(() => tasks.value.find(t => t.id === parentTaskId.value))
+const parentTask = computed(() => tasks.value.find(t => t.id === (props.task as any).parentTaskId))
 const corrections = computed(() => tasks.value.filter(t => (t as any).parentTaskId === props.task.id))
 
 function openParentTask() {
@@ -274,30 +265,13 @@ function openParentTask() {
   >
     <div class="modal-panel bg-white dark:bg-surface-card rounded-2xl shadow-2xl dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-[90vw] max-h-[90vh] overflow-hidden border border-gray-200 dark:border-surface-border flex flex-col">
       <!-- Header -->
-      <div class="p-6 pb-4 border-b border-gray-100 dark:border-surface-border/50 flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-4">
-          <h2 id="task-detail-title" class="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Task Details</h2>
-          <button
-            type="button"
-            @click="copyTaskLink"
-            class="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all flex items-center gap-1.5"
-            :aria-label="linkCopied ? 'Link copied' : 'Copy task link'"
-          >
-            <span aria-hidden="true">{{ linkCopied ? '✓' : '🔗' }}</span>
-            <span>{{ linkCopied ? 'Copied' : 'Link' }}</span>
-          </button>
-        </div>
-        <div class="flex items-center gap-3">
-          <div v-if="parentTask" @click="openParentTask" class="cursor-pointer text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20 hover:bg-neon-orange/20 transition-all flex items-center gap-1.5 shadow-sm shadow-neon-orange/5" title="Go to parent task">
-            <span aria-hidden="true">↩</span>
-            <span class="truncate max-w-[120px]">Parent: {{ parentTask.title }}</span>
-          </div>
-          <div v-else-if="parentTaskId" class="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20">
-            <span>↩ Correction</span>
-          </div>
-          <button @click="handleClose" class="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors text-2xl leading-none p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-raised" aria-label="Close dialog">&times;</button>
-        </div>
-      </div>
+      <TaskDetailHeader
+        :task="task"
+        :board-id="boardId"
+        :parent-task="parentTask"
+        @close="handleClose"
+        @open-parent="openParentTask"
+      />
 
       <!-- Content -->
       <div class="flex-1 flex flex-col xl:flex-row overflow-y-auto xl:overflow-hidden">
@@ -315,117 +289,27 @@ function openParentTask() {
               <textarea id="task-description" v-model="description" @blur="debouncedSaveGeneral(false)" rows="6" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none resize-none transition-all leading-relaxed placeholder:text-gray-400 dark:placeholder:text-gray-600" placeholder="Describe the task in detail..." />
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div class="space-y-1.5">
-                <label for="task-status" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Status</label>
-                <div class="relative">
-                  <select id="task-status" v-model="status" class="w-full appearance-none border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all cursor-pointer">
-                    <option value="backlog">Backlog</option>
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="review">Review</option>
-                    <option value="done">Done</option>
-                    <option value="archive">Archive</option>
-                  </select>
-                  <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" aria-hidden="true">▼</div>
-                </div>
-              </div>
-              <div class="space-y-1.5 flex items-end">
-                <button
-                  type="button"
-                  @click="isHumanOnly = !isHumanOnly; debouncedSaveGeneral(false)"
-                  class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised hover:border-neon-cyan/50 transition-all"
-                >
-                  <span class="text-sm" aria-hidden="true">{{ isHumanOnly ? '👤' : '🤖' }}</span>
-                  <span class="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                    {{ isHumanOnly ? 'Human only' : 'AI capable' }}
-                  </span>
-                </button>
-              </div>
-
-              <div class="space-y-1.5">
-                <label for="task-priority" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Priority</label>
-                <div class="relative">
-                  <select id="task-priority" v-model="priority" class="w-full appearance-none border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all cursor-pointer">
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </select>
-                  <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" aria-hidden="true">▼</div>
-                </div>
-              </div>
-              <div class="space-y-1.5">
-                <label for="task-difficulty" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Difficulty</label>
-                <div class="relative">
-                  <select id="task-difficulty" v-model="difficulty" @change="debouncedSaveGeneral" class="w-full appearance-none border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all cursor-pointer">
-                    <option :value="1">1</option>
-                    <option :value="2">2</option>
-                    <option :value="3">3</option>
-                    <option :value="4">4</option>
-                    <option :value="5">5</option>
-                  </select>
-                  <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" aria-hidden="true">▼</div>
-                </div>
-              </div>
-
-              <div class="space-y-1.5">
-                <label for="task-assignee" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Assignee</label>
-                <div class="relative">
-                  <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs opacity-50" aria-hidden="true">{{ isHumanOnly ? '👤' : '🤖' }}</span>
-                  <select v-if="isHumanOnly" v-model="assignee" id="task-assignee" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all">
-                    <option value="">Unassigned</option>
-                    <option v-for="member in members" :key="member.userId" :value="member.name">{{ member.name }}</option>
-                  </select>
-                  <input v-else id="task-assignee" v-model="assignee" type="text" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-600" placeholder="Agent name" />
-                </div>
-              </div>
-
-              <div class="space-y-1.5 col-span-1 md:col-span-3">
-                <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Tags</label>
-                <TagPicker v-model:selectedTagIds="selectedTagIds" :board-id="boardId" />
-              </div>
-            </div>
+            <TaskDetailProperties
+              v-model:status="status"
+              v-model:priority="priority"
+              v-model:difficulty="difficulty"
+              v-model:assignee="assignee"
+              v-model:is-human-only="isHumanOnly"
+              v-model:selected-tag-ids="selectedTagIds"
+              :board-id="boardId"
+              :members="members"
+              @change="debouncedSaveGeneral(false)"
+            />
 
             <!-- Correction Task Section -->
-            <div v-if="status === 'review' || status === 'done' || isCorrectionMode" class="bg-gray-50 dark:bg-surface-raised/30 rounded-2xl p-5 border border-gray-100 dark:border-surface-border/30 space-y-4">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="text-neon-orange" aria-hidden="true">↩</span>
-                  <h3 class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300">Corrections</h3>
-                </div>
-                <button
-                  v-if="!isCorrectionMode"
-                  type="button"
-                  @click="onStartCorrection"
-                  class="text-[10px] font-bold uppercase tracking-widest bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20 px-3 py-1.5 rounded-xl hover:bg-neon-orange/20 transition-all"
-                >
-                  Request Correction
-                </button>
-                <div v-else class="text-[10px] font-bold uppercase tracking-widest text-neon-orange animate-pulse">
-                  Correction in progress...
-                </div>
-              </div>
-
-              <div v-if="corrections.length > 0" class="grid grid-cols-1 gap-2">
-                <div
-                  v-for="c in corrections"
-                  :key="c.id"
-                  @click="emit('openTask', c)"
-                  class="flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised hover:border-neon-orange/50 dark:hover:border-neon-orange/50 cursor-pointer transition-all group"
-                  role="button"
-                  :aria-label="`Open correction: ${c.title}`"
-                  tabindex="0"
-                  @keydown.enter="emit('openTask', c)"
-                >
-                  <div class="flex items-center gap-3 overflow-hidden">
-                    <span class="text-neon-orange opacity-50 group-hover:opacity-100 transition-opacity" aria-hidden="true">↩</span>
-                    <span class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{{ c.title }}</span>
-                  </div>
-                  <span class="text-[9px] font-bold uppercase tracking-tighter px-1.5 py-0.5 rounded bg-gray-100 dark:bg-surface-hover text-gray-500 dark:text-gray-400">{{ c.status }}</span>
-                </div>
-              </div>
-            </div>
+            <TaskDetailCorrections
+              :task="task"
+              :corrections="corrections"
+              :status="status"
+              :is-correction-mode="isCorrectionMode"
+              @start-correction="onStartCorrection"
+              @open-task="(t) => emit('openTask', t)"
+            />
 
             <!-- Child Task Section -->
             <div class="bg-gray-50 dark:bg-surface-raised/30 rounded-2xl p-5 border border-gray-100 dark:border-surface-border/30 space-y-4">
@@ -445,27 +329,15 @@ function openParentTask() {
             </div>
           </form>
 
-          <div class="border-t pt-6 flex items-center justify-between">
-            <div>
-              <button v-if="!confirmDelete" type="button" @click="confirmDelete = true" class="text-xs font-bold uppercase tracking-widest text-red-500 hover:text-red-700 dark:text-neon-red/70 dark:hover:text-neon-red transition-all">Delete Task</button>
-              <div v-else class="flex items-center gap-3" role="alert">
-                <span class="text-[10px] font-bold uppercase tracking-widest text-red-600 dark:text-neon-red">Confirm?</span>
-                <button type="button" @click="onDelete" class="text-[10px] font-bold uppercase tracking-widest text-red-700 dark:text-neon-red hover:underline">Yes, delete</button>
-                <button type="button" @click="confirmDelete = false" class="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">Cancel</button>
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <button type="button" @click="handleClose" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors" title="Cancel">Cancel</button>
-              <button
-                type="submit"
-                form="task-edit-form"
-                :disabled="saving || !title.trim()"
-                class="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-lg hover:bg-neon-cyan/90 disabled:opacity-50 transition-all shadow-md shadow-neon-cyan/20 active:scale-95"
-              >
-                {{ saving ? 'Saving...' : 'Save' }}
-              </button>
-            </div>
-          </div>
+          <TaskDetailFooter
+            :saving="saving"
+            :confirm-delete="confirmDelete"
+            :title-valid="!!title.trim()"
+            @cancel="handleClose"
+            @save="onSave"
+            @delete="onDelete"
+            @toggle-confirm-delete="(val) => confirmDelete = val"
+          />
         </div>
 
         <!-- Comments Section -->
