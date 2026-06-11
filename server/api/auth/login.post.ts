@@ -16,14 +16,26 @@ export default defineEventHandler(async (event) => {
   }
 
   const email = body.email.trim().toLowerCase()
-  const results = await db.select().from(users).where(eq(users.email, email))
-  const user = results[0]
+  let results = await db.select().from(users).where(eq(users.email, email))
+  let user = results[0]
+  
   if (!user) {
+    // Try case-sensitive fallback just in case
+    results = await db.select().from(users).where(eq(users.email, body.email.trim()))
+    user = results[0]
+    if (user) {
+       console.log(`[Login] Found user with case-sensitive match but not lowercased: ${body.email.trim()}`)
+    }
+  }
+
+  if (!user) {
+    console.log(`[Login] User not found: ${email}`)
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
   }
 
   const valid = await comparePasswords(body.password, user.passwordHash)
   if (!valid) {
+    console.log(`[Login] Password mismatch for: ${email}. Hash prefix: ${user.passwordHash.substring(0, 10)}`)
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
   }
 

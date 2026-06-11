@@ -1,9 +1,9 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { eq } from 'drizzle-orm'
-import { db } from '../../db'
-import { users } from '../../db/schema'
-import { createGlobalMcpServer } from '../../utils/global-mcp'
+import { db } from '../db'
+import { users } from '../db/schema'
+import { createGlobalMcpServer } from '../utils/global-mcp'
 
 export default defineEventHandler(async (event) => {
   const authHeader = event.node.req.headers.authorization || ''

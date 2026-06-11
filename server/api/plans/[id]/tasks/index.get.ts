@@ -1,6 +1,6 @@
 import { getRouterParam } from 'h3'
-import { db } from '../../../db'
-import { planTasks, plans } from '../../../db/schema'
+import { db } from '../../../../db'
+import { planTasks, plans } from '../../../../db/schema'
 import { eq, or, and, asc } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {

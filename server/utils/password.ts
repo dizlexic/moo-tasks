@@ -11,8 +11,13 @@ export const hashPassword = async (password: string) => {
 };
 
 export const comparePasswords = async (password: string, hash: string) => {
-  const [salt, hashValue] = hash.split(':');
-  if (!salt || !hashValue) return false;
+  if (!hash) return false;
+  const parts = hash.trim().split(':');
+  if (parts.length !== 2) {
+    console.log(`[Password] Unknown hash format: ${hash.substring(0, 20)}...`);
+    return false;
+  }
+  const [salt, hashValue] = parts;
   const passwordHash = (await scryptAsync(password, salt, 64)) as Buffer;
   return passwordHash.toString('hex') === hashValue;
 };

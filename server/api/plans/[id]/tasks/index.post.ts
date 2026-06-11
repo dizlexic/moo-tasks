@@ -1,7 +1,7 @@
 import { readBody, getRouterParam } from 'h3'
-import { db } from '../../../db'
-import { planTasks, plans } from '../../../db/schema'
-import { generateId } from '../../../utils/id'
+import { db } from '../../../../db'
+import { planTasks, plans } from '../../../../db/schema'
+import { generateId } from '../../../../utils/id'
 import { eq, and } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {

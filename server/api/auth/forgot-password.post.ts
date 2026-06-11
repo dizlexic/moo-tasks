@@ -14,7 +14,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Email is required' })
   }
 
-  const user = await db.select().from(users).where(eq(users.email, email.toLowerCase())).then(res => res[0])
+  const normalizedEmail = email.trim().toLowerCase()
+  const user = await db.select().from(users).where(eq(users.email, normalizedEmail)).then(res => res[0])
 
   if (!user) {
     // Return success to avoid email enumeration
