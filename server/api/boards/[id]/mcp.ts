@@ -34,7 +34,25 @@ export default defineEventHandler(async (event) => {
     }
     const token = authHeader.slice(7).trim()
 
-    if (token !== board.mcpToken) {
+    let authenticated = (token === board.mcpToken)
+
+    if (!authenticated && board.allowAccountToken) {
+      // Find user by account token
+      const userResults = await db.select().from(users).where(eq(users.accountToken, token))
+      const user = userResults[0]
+      if (user) {
+        // Check if user is a member of this board
+        const { boardMembers } = await import('../../../db/schema')
+        const { and } = await import('drizzle-orm')
+        const membershipResults = await db.select().from(boardMembers)
+          .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, user.id)))
+        if (membershipResults.length > 0) {
+          authenticated = true
+        }
+      }
+    }
+
+    if (!authenticated) {
       event.node.res.setHeader('WWW-Authenticate', 'Bearer realm="moo-tasks", error="invalid_token"')
       throw createError({ statusCode: 401, statusMessage: 'Invalid bearer token' })
     }

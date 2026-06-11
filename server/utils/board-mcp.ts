@@ -314,6 +314,15 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
           return { content: [{ type: 'text', text: JSON.stringify({ error: `Task is already accepted by ${existing.assignee}` }) }], isError: true }
         }
 
+        if (existing.status === 'review') {
+          if (!board.allowAiReview) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: 'AI Review is disabled on this board. Human review is required.' }) }], isError: true }
+          }
+          if (existing.isHumanOnly) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: 'This task is marked as human-only and requires human review.' }) }], isError: true }
+          }
+        }
+
         await db.update(tasks).set({ assignee: agentName.trim(), status: 'in_progress', updatedAt: new Date() }).where(eq(tasks.id, taskId))
         const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
         const updated = updatedResults[0]

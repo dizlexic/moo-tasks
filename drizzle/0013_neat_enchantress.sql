@@ -1,0 +1,1 @@
+ALTER TABLE `boards` ADD `allow_ai_review` boolean DEFAULT false NOT NULL;

@@ -1,0 +1,1 @@
+ALTER TABLE `boards` ADD `allow_account_token` boolean DEFAULT true NOT NULL;

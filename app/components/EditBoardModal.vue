@@ -1,10 +1,12 @@
 <script setup lang="ts">
-const props = defineProps<{ boardId: string; initialName: string; initialDescription: string; initialShowTimeline: boolean }>()
+const props = defineProps<{ boardId: string; initialName: string; initialDescription: string; initialShowTimeline: boolean; initialAllowAiReview: boolean; initialAllowAccountToken: boolean }>()
 const emit = defineEmits<{ close: [], updated: [any] }>()
 
 const name = ref(props.initialName)
 const description = ref(props.initialDescription)
 const showTimeline = ref(props.initialShowTimeline)
+const allowAiReview = ref(props.initialAllowAiReview)
+const allowAccountToken = ref(props.initialAllowAccountToken)
 const saving = ref(false)
 const error = ref('')
 
@@ -18,7 +20,7 @@ async function onSave() {
   try {
     const updatedBoard = await $fetch(`/api/boards/${props.boardId}`, { 
         method: 'PATCH', 
-        body: { name: name.value, description: description.value, showTimeline: showTimeline.value } 
+        body: { name: name.value, description: description.value, showTimeline: showTimeline.value, allowAiReview: allowAiReview.value, allowAccountToken: allowAccountToken.value } 
     })
     emit('updated', updatedBoard)
     emit('close')
@@ -38,9 +40,19 @@ async function onSave() {
       <input v-model="name" type="text" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm mb-4 focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none" placeholder="Board name" />
       <textarea v-model="description" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm mb-4 focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none" placeholder="Description (optional)" rows="3"></textarea>
 
-      <label class="flex items-center gap-2 mb-4">
+      <label class="flex items-center gap-2 mb-2">
         <input v-model="showTimeline" type="checkbox" class="accent-neon-cyan" />
         <span class="text-sm text-gray-700 dark:text-gray-300">Show Task Timeline</span>
+      </label>
+      
+      <label class="flex items-center gap-2 mb-2">
+        <input v-model="allowAiReview" type="checkbox" class="accent-neon-cyan" />
+        <span class="text-sm text-gray-700 dark:text-gray-300">Allow AI Review</span>
+      </label>
+
+      <label class="flex items-center gap-2 mb-4">
+        <input v-model="allowAccountToken" type="checkbox" class="accent-neon-cyan" />
+        <span class="text-sm text-gray-700 dark:text-gray-300">Allow Account Token Access</span>
       </label>
 
       <div v-if="error" class="text-red-500 text-xs font-semibold mb-4">{{ error }}</div>

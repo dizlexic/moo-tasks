@@ -20,6 +20,8 @@ export const boards = mysqlTable('boards', {
   mcpPublic: boolean('mcp_public').notNull().default(false),
   mcpEnabledFunctions: json('mcp_enabled_functions'),
   showTimeline: boolean('show_timeline').notNull().default(false),
+  allowAiReview: boolean('allow_ai_review').notNull().default(false),
+  allowAccountToken: boolean('allow_account_token').notNull().default(true),
   lastActivityAt: timestamp('last_activity_at'),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),

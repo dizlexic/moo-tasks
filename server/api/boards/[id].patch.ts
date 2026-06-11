@@ -21,6 +21,8 @@ export default defineEventHandler(async (event) => {
   if (typeof body.description === 'string') updates.description = body.description.trim()
   if (typeof body.mcpPublic === 'boolean') updates.mcpPublic = body.mcpPublic
   if (typeof body.showTimeline === 'boolean') updates.showTimeline = body.showTimeline
+  if (typeof body.allowAiReview === 'boolean') updates.allowAiReview = body.allowAiReview
+  if (typeof body.allowAccountToken === 'boolean') updates.allowAccountToken = body.allowAccountToken
 
   await db.update(boards).set(updates).where(eq(boards.id, id))
   await logBoardEvent({
