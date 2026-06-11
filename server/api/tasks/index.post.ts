@@ -4,7 +4,7 @@ import { db } from '../../db'
 import { tasks, boardMembers } from '../../db/schema'
 import { generateId } from '../../utils/id'
 import { logBoardEvent } from '../../utils/logs'
-import { reorderTasks } from '../../utils/tasks'
+import { reorderTasks, getNextBoardTaskId } from '../../utils/tasks'
 import { emitTaskEvent } from '../../utils/socket'
 
 export default defineEventHandler(async (event) => {
@@ -41,6 +41,7 @@ export default defineEventHandler(async (event) => {
   const status = body.status && validStatuses.includes(body.status) ? body.status : 'backlog'
 
   const now = new Date()
+  const boardTaskId = await getNextBoardTaskId(body.boardId)
   const newTask = {
     id: generateId(),
     boardId: body.boardId,
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
     status,
     priority,
     order: body.order !== undefined ? parseInt(body.order, 10) : 0,
+    boardTaskId,
     assignee: body.assignee?.trim() || null,
     parentTaskId: body.parentTaskId?.trim() || null,
     difficulty: (body.difficulty !== undefined && body.difficulty !== null) ? parseInt(body.difficulty, 10) : null,

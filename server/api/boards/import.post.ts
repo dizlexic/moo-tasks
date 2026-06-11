@@ -34,6 +34,7 @@ export default defineEventHandler(async (event) => {
   })
 
   // Create tasks
+  let taskCounter = 1
   for (const task of body.tasks) {
     await db.insert(tasks).values({
       id: nanoid(),
@@ -43,6 +44,7 @@ export default defineEventHandler(async (event) => {
       status: task.status || 'backlog',
       priority: task.priority || 'medium',
       order: task.order || 0,
+      boardTaskId: taskCounter++,
       assignee: task.assignee,
       parentTaskId: task.parentTaskId,
       createdAt: now,

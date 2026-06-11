@@ -44,6 +44,7 @@ export const tasks = mysqlTable('tasks', {
   status: mysqlEnum('status', ['backlog', 'todo', 'in_progress', 'review', 'done', 'archive']).notNull().default('backlog'),
   priority: mysqlEnum('priority', ['low', 'medium', 'high', 'critical']).notNull().default('medium'),
   order: int('order').notNull().default(0),
+  boardTaskId: int('board_task_id').notNull().default(0),
   assignee: varchar('assignee', { length: 255 }),
   parentTaskId: varchar('parent_task_id', { length: 191 }),
   difficulty: int('difficulty'),

@@ -11,6 +11,11 @@ Backlog → To Do → In Progress → Review → Done
 - **review**: Tasks submitted for review
 - **done**: Completed tasks that have passed review
 
+## Task Identifiers
+Each task has two identifiers:
+1. **id**: A unique, permanent string ID (e.g., \`A86rlBBUBe3f\`) used in tool calls.
+2. **boardTaskId**: A sequential numeric ID specific to the board (e.g., \`1\`, \`2\`). You can use this for easier reference in conversation, like "Task 5".
+
 ## Task Priorities
 - **critical**: Must be addressed immediately
 - **high**: Important, should be done soon

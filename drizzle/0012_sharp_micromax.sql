@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `board_task_id` int DEFAULT 0 NOT NULL;

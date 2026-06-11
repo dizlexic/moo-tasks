@@ -1,4 +1,4 @@
-import { eq, and, asc, desc } from 'drizzle-orm'
+import { eq, and, asc, desc, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { tasks } from '../db/schema'
 import { emitTaskEvent } from './socket'
@@ -39,4 +39,13 @@ export async function reorderTasks(boardId: string, status: string, taskId: stri
       emitTaskEvent(boardId, 'task:updated', updated)
     }
   }
+}
+
+export async function getNextBoardTaskId(boardId: string): Promise<number> {
+  const result = await db.select({ maxId: sql<number>`max(${tasks.boardTaskId})` })
+    .from(tasks)
+    .where(eq(tasks.boardId, boardId))
+
+  const maxId = result[0]?.maxId || 0
+  return Number(maxId) + 1
 }

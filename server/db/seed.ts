@@ -48,6 +48,7 @@ async function seed() {
     })
   }
 
+  let taskCounter = 1
   for (const task of sampleTasks) {
     await db.insert(tasks).values({
       id: nanoid(12),
@@ -56,6 +57,7 @@ async function seed() {
       description: task.description,
       status: task.status,
       priority: task.priority,
+      boardTaskId: taskCounter++,
       assignee: task.assignee || null,
       createdAt: now,
       updatedAt: now,

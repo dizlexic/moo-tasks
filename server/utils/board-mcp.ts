@@ -5,7 +5,7 @@ import { db } from '../db'
 import { tasks, comments, instructions, boards, boardColumns, users, boardMembers, tags, taskTags } from '../db/schema'
 import { generateId } from './id'
 import { emitTaskEvent } from './socket'
-import { reorderTasks } from './tasks'
+import { reorderTasks, getNextBoardTaskId } from './tasks'
 import { logBoardEvent } from './logs'
 
 async function getInstructionContent(boardId: string, type: 'agent_instructions' | 'task_workflow'): Promise<string> {
@@ -107,9 +107,10 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       },
       async ({ title, description, priority, parentTaskId }) => {
         void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'create-task', data: { title, priority, parentTaskId } })
-        if (getPermissions('backlog').add === false) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
+        if (!getPermissions('backlog').add) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
 
         const now = new Date()
+        const boardTaskId = await getNextBoardTaskId(boardId)
         const newTask = {
           id: generateId(),
           boardId,
@@ -118,6 +119,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
           status: 'backlog' as const,
           priority: priority || ('medium' as const),
           order: 0,
+          boardTaskId,
           assignee: null,
           parentTaskId: parentTaskId?.trim() || null,
           createdAt: now,

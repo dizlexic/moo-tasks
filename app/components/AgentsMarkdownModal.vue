@@ -71,6 +71,10 @@ Moo Tasks is a kanban board that exposes each board as its own
 (MCP) server. The endpoint is **scoped to a single board** — an agent connected
 to one board can never see or modify tasks on any other board.
 
+Each task on the board has two identifiers:
+- **ID**: A unique, permanent string ID (e.g., \`A86rlBBUBe3f\`) used in tool calls.
+- **Board Task ID**: A sequential numeric ID specific to the board (e.g., \`1\`, \`2\`). Use this for easier reference in conversation.
+
 - **Endpoint URL:** \`${origin}/api/boards/${boardId}/mcp\`
 - **Transport:** \`streamable-http\`
 - **Auth:** \`Authorization: Bearer <token>\` (per
