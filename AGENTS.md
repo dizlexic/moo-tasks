@@ -66,7 +66,7 @@ toggles in board settings):
 
 | Tool                  | Purpose                                               |
 |-----------------------|-------------------------------------------------------|
-| `list-tasks`          | Discover open tasks (filter by status/priority)       |
+| `list-tasks`          | Discover open tasks (filter by status/priority/limit) |
 | `get-task`            | Read full details of a single task                    |
 | `get-comments`        | Read all comments on a task                           |
 | `accept-task`         | Claim a task — assigns you and sets `in_progress`     |
@@ -100,7 +100,9 @@ capacity on this project), follow this loop:
    `moo-tasks://<boardId>/agent-instructions` resource and the `task-workflow`
    prompt — these may contain project-specific rules that override this file.
 2. **Discover work.** Call `list-tasks` (filter `status=todo`, sort by priority)
-   to find unclaimed tasks.
+   to find unclaimed tasks. Note: `todo` results are limited to 10 by default; 
+   use the `limit` parameter to see more. If AI review is enabled, you can 
+   also filter by `status=review` to find tasks that need verification.
 3. **Pick one task.** Prefer `critical` > `high` > `medium` > `low`. Read the
    full task with `get-task` and any prior `get-comments`.
 4. **Accept it.** Call `accept-task` with a stable, unique `agentName` (e.g. `"<model>-<handle>"`). This locks the task to

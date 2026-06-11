@@ -31,6 +31,8 @@ Each task has two identifiers:
 6. If corrections are needed, a reviewer can use **reject-task** (moves original back to todo with a correction tag) or **request-corrections** (creates a linked correction task).
 7. If the review passes, use **update-task-status** to mark the task as "done".
 8. If you discover follow-up work, use **create-task** to add new tasks.
+9. To manage boards or get setup help, use **create-board** or **get-installation-instructions**.
+
 ## AI Review
 If "Allow AI Review" is enabled on the board, agents can also accept tasks from the "review" column. When reviewing a task:
 1. Inspect the work described in the task and comments.
@@ -48,7 +50,7 @@ Note: Agents cannot review tasks marked as "Human only".
 
 export const DEFAULT_TASK_WORKFLOW = `You are an AI agent working with Moo Tasks. Follow this workflow:
 
-1. **Discover tasks**: Call the "list-tasks" tool to see available tasks. Filter by status "todo" or "in_progress" to find work.
+1. **Discover tasks**: Call the "list-tasks" tool to see available tasks. Filter by status "todo", "in_progress", or "review" (if enabled) to find work. Note: "todo" results are limited to 10 by default; use the "limit" parameter to see more.
 
 2. **Read instructions**: Read the "agent-instructions" resource to understand the full workflow and rules.
 

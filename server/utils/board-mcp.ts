@@ -58,31 +58,44 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     version: '2.0.0',
   })
 
-  if (enabledFunctions['list-tasks'] !== false) {
+  if (enabledFunctions['list-tasks']) {
     server.tool(
       'list-tasks',
       'List tasks on this board. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',
       {
-        status: z.enum(['todo', 'in_progress']).optional().describe('Filter by task status'),
+        status: z.enum(['todo', 'in_progress', 'review']).optional().describe('Filter by task status'),
         priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Filter by task priority'),
+        limit: z.number().int().positive().optional().describe('Limit the number of tasks returned (default 10 for todo)'),
       },
-      async ({ status, priority }) => {
-        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority } })
+      async ({ status, priority, limit }) => {
+        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority, limit } })
+        
+        const allowedStatuses = ['todo', 'in_progress'];
+        if (board.allowAiReview) {
+          allowedStatuses.push('review');
+        }
+
         const conditions = [
           eq(tasks.boardId, boardId),
-          inArray(tasks.status, ['todo', 'in_progress'])
+          inArray(tasks.status, allowedStatuses as any)
         ]
         if (status) conditions.push(eq(tasks.status, status))
         if (priority) conditions.push(eq(tasks.priority, priority))
 
-        const result = await db.select().from(tasks).where(and(...conditions))
-        const filteredTasks = result.filter(t => getPermissions(t.status).view !== false)
+        const result = await db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
+        let filteredTasks = result.filter(t => getPermissions(t.status).view !== false)
+
+        const effectiveLimit = limit || (status === 'todo' ? 10 : undefined)
+        if (effectiveLimit) {
+          filteredTasks = filteredTasks.slice(0, effectiveLimit)
+        }
+
         return { content: [{ type: 'text', text: JSON.stringify({ tasks: filteredTasks, count: filteredTasks.length }) }] }
       },
     )
   }
 
-  if (enabledFunctions['get-task'] !== false) {
+  if (enabledFunctions['get-task']) {
     server.tool(
       'get-task',
       'Get full details of a task by ID.',
