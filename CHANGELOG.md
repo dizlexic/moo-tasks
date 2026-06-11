@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2026-06-11
+
+### 🚀 New Features
+
+*   **Task Plan Discovery**: Added new tools for agents to discover and apply task plans, improving automation capabilities.
+*   **Logging**: Introduced logging for MCP server activity to aid in debugging and monitoring.
+
+### 🛠️ Improvements & Refinements
+
+*   **MCP Server Refactoring**: Refactored `board-mcp.ts` to centralize tool enablement checks and moved them inside each tool's async function for more consistent access to board data.
+
+### 🧪 Quality & Testing
+
+*   **Global MCP Tests**: Added unit tests for `createGlobalMcpServer` to verify correct tool registration and `create-board` functionality.
+
 ## [0.9.0] - 2026-06-11
 
 ### 🚀 New Features
@@ -46,4 +61,4 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-*Generated based on recent commit history covering commits from `4656d7a` to `c9e7cbc`.*
+*Generated based on recent commit history covering commits from `c7b7256` to `38f8391`.*
