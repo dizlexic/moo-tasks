@@ -57,12 +57,13 @@ Common locations:
 
 ## 3. Available MCP tools
 
-Once connected, the following tools are available (subject to per-board
-toggles in board settings):
+Once connected, the following tools are available (subject to per-board toggles in board settings).
+
+Note: The MCP server dynamically checks your board's `mcpEnabledFunctions` configuration when you invoke these tools. If a tool is disabled in the board settings, the agent will receive a "Tool disabled" error if it attempts to invoke it.
 
 | Tool                  | Purpose                                               |
 |-----------------------|-------------------------------------------------------|
-| `list-tasks`          | Discover open tasks (filter by status/priority)       |
+| `list-tasks`          | Discover open tasks (filter by status/priority/limit — `todo` limited to 10 by default) |
 | `get-task`            | Read full details of a single task                    |
 | `get-comments`        | Read all comments on a task                           |
 | `accept-task`         | Claim a task — assigns you and sets `in_progress`     |
@@ -70,11 +71,14 @@ toggles in board settings):
 | `update-task-status`  | Move a task between columns                           |
 | `submit-for-review`   | Mark a task ready for human review                    |
 | `request-corrections` | Create a linked correction task off a reviewed task   |
+| `reject-task`         | Reject a task review and move it back to todo (AI review) |
 | `create-task`         | File a new task on the board                          |
 | `delete-task`         | Remove a task (use sparingly)                         |
 | `generate-changelog`  | Generate a markdown changelog based on completed (done) tasks |
-| `update-board-column` | Update a board column's name, description, or instructions    |
-| `list-board-members`  | List members of the board. WHEN TO USE: To find users to assign tasks to. |
+| `list-plans`          | Discover available task plans (templates) |
+| `apply-plan`         | Apply a task plan to this board |
+| `create-board`        | Create a new board (requires account token or board owner context) |
+| `get-installation-instructions` | Get instructions for installing/setting up Moo Tasks |
 
 Plus resources/prompts:
 
@@ -93,18 +97,20 @@ capacity on this project), follow this loop:
    `moo-tasks://<boardId>/agent-instructions` resource and the `task-workflow`
    prompt — these may contain project-specific rules that override this file.
 2. **Discover work.** Call `list-tasks` (filter `status=todo`, sort by priority)
-   to find unclaimed tasks.
+   to find unclaimed tasks. Note: `todo` results are limited to 10 by default; 
+   explicitly use the `limit` parameter to retrieve more tasks if needed.
 3. **Pick one task.** Prefer `critical` > `high` > `medium` > `low`. Read the
    full task with `get-task` and any prior `get-comments`.
-4. **Accept it.** Call `accept-task` with a stable `agentName` (e.g. your
-   model + handle, like `"junie"` or `"claude-code"`). This locks the task to
-   you and moves it to `in_progress`.
-5. **Work in this repository.** Make the code changes the task describes,
-   following the project's existing conventions, tests, and lint rules.
+4. **Accept it.** Call `accept-task` with a stable, unique `agentName` (e.g. `"<model>-<handle>"`). This locks the task to
+   you and moves it to `in_progress`. This helps humans and other agents identify who is working on the task.
+5. **Work in this repository.** Make the code changes the task describes, or 
+   if you are reviewing, verify the implementation.
 6. **Communicate.** Use `add-comment` for non-trivial decisions, blockers,
    or questions. Comments are visible to humans on the board in real time.
-7. **Submit for review.** When done, comment a summary of your changes as a "Task Result" in markdown, then call `submit-for-review` with the task ID.
-   Do **not** mark tasks `done` yourself — humans (or a reviewer agent) move
+7. **Submit for review.** When done, comment a summary of your changes as a "Task Result" in markdown, then call `submit-for-review` with the task ID. 
+   If you were reviewing, call `update-task-status` to move it to `done` if it passes, 
+   or `reject-task` if it fails.
+   Do **not** mark tasks `done` yourself unless you are reviewing another agent's task — humans (or a reviewer agent) move
    tasks from `review` to `done` after verifying.
 8. **Handle corrections.** If a human creates a correction task linked to your
    original (parent) task, treat it as a new top-priority item: accept it,
@@ -122,6 +128,19 @@ capacity on this project), follow this loop:
 - ❌ Don't move tasks straight to `done` — always go through `review`.
 - ❌ Don't try to access tasks from other boards; this token only works for
   the single board it was issued for.
+
+### Self-Sustaining Loop (TDD & Automation)
+
+To ensure continuous project improvement, follow this loop when no tasks are assigned or the board is empty:
+
+1. **Discovery:** If `list-tasks` returns zero `todo` tasks, run the discovery script: `node scripts/discover-gaps.mjs`. This script analyzes the codebase and identifies gaps in tests, documentation, or features.
+2. **Generation:** Create new discrete tasks using the `create-task` tool based on the findings from the discovery script. Each task should focus on one of the following areas:
+   - **Test implementation:** Unit, integration, or E2E tests for existing or new logic.
+   - **Performance & Fuzzing:** Add benchmarks or fuzz tests to stress-test critical components.
+   - **Security:** Audit sensitive areas (auth, DB access) and add security-focused tests.
+   - **Refactoring:** Identify technical debt and propose refactoring tasks with a focus on TDD.
+3. **TDD Best Practices:** When creating tasks, structure them to follow TDD (red-green-refactor). Start by defining a reproduction script or a failing test case that demonstrates the need for the change.
+4. **Maintenance:** Periodically review `done` tasks and run `generate-changelog` to keep documentation up to date.
 
 ---
 

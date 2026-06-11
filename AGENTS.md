@@ -20,7 +20,8 @@ Each task on the board has two identifiers:
 - **Endpoint URL:** `https://mootasks.dev/api/boards/<boardId>/mcp` (or your self-hosted host)
 - **Global Endpoint:** `https://mootasks.dev/api/mcp` (requires account token)
 - **Transport:** `streamable-http`
-- **Auth:** `Authorization: Bearer <token>` (per
+- **Authorization Flow:** All requests must include the `Authorization` header.
+  Use the format: `Authorization: Bearer <your-bearer-token>` (per
   [MCP basic spec](https://modelcontextprotocol.io/specification/2025-11-25/basic))
 
 > ⚠️ Tokens via `?token=` query string are **not supported**. Always use the
@@ -61,12 +62,13 @@ Common locations:
 
 ## 3. Available MCP tools
 
-Once connected, the following tools are available (subject to per-board
-toggles in board settings):
+Once connected, the following tools are available (subject to per-board toggles in board settings).
+
+Note: The MCP server dynamically checks your board's `mcpEnabledFunctions` configuration when you invoke these tools. If a tool is disabled in the board settings, the agent will receive a "Tool disabled" error if it attempts to invoke it.
 
 | Tool                  | Purpose                                               |
 |-----------------------|-------------------------------------------------------|
-| `list-tasks`          | Discover open tasks (filter by status/priority/limit) |
+| `list-tasks`          | Discover open tasks (filter by status/priority/limit — `todo` limited to 10 by default) |
 | `get-task`            | Read full details of a single task                    |
 | `get-comments`        | Read all comments on a task                           |
 | `accept-task`         | Claim a task — assigns you and sets `in_progress`     |
@@ -78,8 +80,8 @@ toggles in board settings):
 | `create-task`         | File a new task on the board                          |
 | `delete-task`         | Remove a task (use sparingly)                         |
 | `generate-changelog`  | Generate a markdown changelog based on completed (done) tasks |
-| `update-board-column` | Update a board column's name, description, or instructions    |
-| `list-board-members`  | List members of the board. WHEN TO USE: To find users to assign tasks to. |
+| `list-plans`          | Discover available task plans (templates) |
+| `apply-plan`         | Apply a task plan to this board |
 | `create-board`        | Create a new board (requires account token or board owner context) |
 | `get-installation-instructions` | Get instructions for installing/setting up Moo Tasks |
 
@@ -101,7 +103,7 @@ capacity on this project), follow this loop:
    prompt — these may contain project-specific rules that override this file.
 2. **Discover work.** Call `list-tasks` (filter `status=todo`, sort by priority)
    to find unclaimed tasks. Note: `todo` results are limited to 10 by default; 
-   use the `limit` parameter to see more. If AI review is enabled, you can 
+   explicitly use the `limit` parameter to retrieve more tasks if needed. If AI review is enabled, you can 
    also filter by `status=review` to find tasks that need verification.
 3. **Pick one task.** Prefer `critical` > `high` > `medium` > `low`. Read the
    full task with `get-task` and any prior `get-comments`.

@@ -32,15 +32,19 @@
 | | Feature | Description |
 |---|---|---|
 | 👤 | **User Accounts** | Email/password registration and login with sealed cookie sessions |
+| ⚙️ | **Account Settings** | Manage global MCP tokens and user account information |
 | 📋 | **Multiple Boards** | Create and manage multiple project boards with custom descriptions |
+| 📋 | **Task Plans** | Create, manage, and apply task templates/plans to project boards |
 | 💾 | **Import/Export** | Import and export boards as JSON |
 | 👥 | **Board Collaboration** | Invite users by email, manage member roles (Owner/Member) |
 | 🔄 | **5-Column Kanban** | Workflow stages: Backlog → To Do → In Progress → Review → Done |
+| 🔢 | **Sequential Task IDs** | Tasks have human-readable sequential IDs (e.g., #1, #2) per board |
 | 🔀 | **Dual View Modes** | Toggle between visual **Kanban Board** and condensed **Task List** |
 | 🖱️ | **Drag & Drop** | Intuitive task movement between columns using `vuedraggable` |
 | 🔧 | **Correction Tasks** | Request specific fixes with linked child tasks for task refinement |
 | 🤖 | **MCP Server** | Per-board MCP endpoints with bearer token auth & Public/Private toggles |
 | 📝 | **Configurable Instructions** | Global and per-board MCP instructions with "Reset to Default" support |
+| 📝 | **Changelog Generation** | AI-powered generation of markdown changelogs from completed tasks |
 | 🔗 | **Task Deep-Linking** | Copy unique task URLs for direct navigation and easy sharing |
 | ⚡ | **Real-time Polling** | Automatic board sync to keep human and AI agent actions in sync |
 | 🗄️ | **MySQL Persistence** | Reliable data storage with Drizzle ORM |
@@ -159,11 +163,20 @@ Tokens can be **generated**, **rotated**, or **revoked** at any time from Board 
 
 | Tool | Description |
 |------|-------------|
-| `list-tasks` | List tasks with optional status/priority filters |
+| `list-tasks` | List tasks with optional status/priority/limit filters |
 | `get-task` | Get full details of a task by ID |
 | `create-task` | Create a new task |
 | `update-task-status` | Update a task's status |
 | `accept-task` | Assign yourself to a task and move it to `in_progress` |
+| `reject-task` | Reject a task review and move it back to `todo` |
+| `add-comment` | Post progress notes or questions on a task |
+| `submit-for-review` | Mark a task ready for human review |
+| `request-corrections` | Create a linked correction task |
+| `generate-changelog` | Generate a markdown changelog from completed tasks |
+| `list-plans` | Discover available task plans/templates |
+| `apply-plan` | Apply a task plan to the board |
+| `create-board` | Create a new board (requires account token) |
+| `get-installation-instructions` | Get setup instructions |
 
 ### 📚 Resources
 
