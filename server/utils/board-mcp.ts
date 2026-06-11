@@ -1,8 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { eq, and, isNull, inArray } from 'drizzle-orm'
+import { eq, and, or, like, isNull, inArray, asc } from 'drizzle-orm'
 import { db } from '../db'
-import { tasks, comments, instructions, boards, boardColumns, users, boardMembers, tags, taskTags } from '../db/schema'
+import { tasks, comments, instructions, boards, boardColumns, users, boardMembers, tags, taskTags, plans, planTasks } from '../db/schema'
 import { generateId } from './id'
 import { emitTaskEvent } from './socket'
 import { reorderTasks, getNextBoardTaskId } from './tasks'
@@ -38,6 +38,8 @@ export const MCP_FUNCTIONS = [
   'task-workflow',
   'get-installation-instructions',
   'create-board',
+  'list-plans',
+  'apply-plan',
 ] as const
 
 export type McpFunction = typeof MCP_FUNCTIONS[number]
@@ -570,6 +572,81 @@ Moo Tasks can be run locally via Docker or used as a hosted service at https://m
 Each board provides its own MCP endpoint. Copy the configuration snippet from Board Settings into your agent's config (e.g., \`~/.claude.json\` for Claude Code, or \`.cursor/mcp.json\` for Cursor).
 `;
         return { content: [{ type: 'text', text: instructions }] }
+      }
+    )
+  }
+
+  if (enabledFunctions['list-plans'] !== false) {
+    server.tool(
+      'list-plans',
+      'Discover available task plans (templates). Plans can be applied to a board to populate it with a set of tasks.',
+      {
+        search: z.string().optional().describe('Search term to filter plans by name or description'),
+      },
+      async ({ search }) => {
+        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-plans', data: { search } })
+        
+        const conditions = [
+          or(eq(plans.isPublic, true), eq(plans.creatorId, board.ownerId))
+        ]
+        
+        if (search) {
+          conditions.push(or(
+            like(plans.name, `%${search}%`),
+            like(plans.description, `%${search}%`)
+          ))
+        }
+
+        const results = await db.select().from(plans).where(and(...conditions))
+        return { content: [{ type: 'text', text: JSON.stringify({ plans: results, count: results.length }) }] }
+      }
+    )
+  }
+
+  if (enabledFunctions['apply-plan'] !== false) {
+    server.tool(
+      'apply-plan',
+      'Apply a task plan to this board. This will create all tasks from the plan in the Todo column.',
+      {
+        planId: z.string().describe('The ID of the plan to apply'),
+      },
+      async ({ planId }) => {
+        void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'apply-plan', data: { planId } })
+
+        const planResults = await db.select().from(plans).where(and(
+          eq(plans.id, planId),
+          or(eq(plans.isPublic, true), eq(plans.creatorId, board.ownerId))
+        ))
+        const planResult = planResults[0]
+        if (!planResult) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Plan not found or not accessible' }) }], isError: true }
+
+        // Get plan tasks
+        const pTasks = await db.select().from(planTasks).where(eq(planTasks.planId, planId)).orderBy(asc(planTasks.order))
+        if (pTasks.length === 0) return { content: [{ type: 'text', text: JSON.stringify({ message: 'Plan has no tasks' }) }] }
+
+        const now = new Date()
+        let nextBoardTaskId = await getNextBoardTaskId(boardId)
+        
+        for (const pt of pTasks) {
+          const newTask = {
+            id: generateId(),
+            boardId,
+            title: pt.title,
+            description: pt.description || '',
+            status: 'todo' as const,
+            priority: pt.priority,
+            order: pt.order,
+            boardTaskId: nextBoardTaskId++,
+            difficulty: pt.difficulty,
+            isHumanOnly: pt.isHumanOnly,
+            createdAt: now,
+            updatedAt: now,
+          }
+          await db.insert(tasks).values(newTask)
+          emitTaskEvent(boardId, 'task:created', newTask)
+        }
+
+        return { content: [{ type: 'text', text: JSON.stringify({ message: `Successfully applied plan "${planResult.name}"`, count: pTasks.length }) }] }
       }
     )
   }
