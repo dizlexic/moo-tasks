@@ -118,18 +118,18 @@ async function saveTask() {
                     </div>
                     <p class="text-gray-500 dark:text-gray-400 leading-relaxed">{{ plan.description || 'No description provided.' }}</p>
                 </div>
-                <button v-if="isOwner" @click="editingPlan = true" class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-gray-50 dark:bg-surface-raised text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-surface-hover transition-all">
+                <button v-if="isOwner" @click="editingPlan = true" class="px-4 py-2 text-sm font-bold uppercase tracking-widest bg-gray-50 dark:bg-surface-raised text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-surface-hover transition-all">
                     Edit Plan Info
                 </button>
             </div>
         </div>
         <form v-else @submit.prevent="savePlan" class="space-y-6">
             <div class="space-y-1.5">
-                <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Plan Name</label>
+                <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Plan Name</label>
                 <input v-model="editName" type="text" required class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all" />
             </div>
             <div class="space-y-1.5">
-                <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
+                <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
                 <textarea v-model="editDescription" rows="3" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all resize-none"></textarea>
             </div>
             <div class="flex items-center gap-3">
@@ -140,8 +140,8 @@ async function saveTask() {
                 </label>
             </div>
             <div class="flex gap-3 pt-4">
-                <button type="submit" class="px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 rounded-xl hover:scale-105 transition-all">Save Changes</button>
-                <button type="button" @click="editingPlan = false" class="px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-gray-100 dark:bg-surface-raised text-gray-500 rounded-xl hover:bg-gray-200 transition-all">Cancel</button>
+                <button type="submit" class="px-6 py-2.5 text-sm font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 rounded-xl hover:scale-105 transition-all">Save Changes</button>
+                <button type="button" @click="editingPlan = false" class="px-6 py-2.5 text-sm font-bold uppercase tracking-widest bg-gray-100 dark:bg-surface-raised text-gray-500 rounded-xl hover:bg-gray-200 transition-all">Cancel</button>
             </div>
         </form>
     </div>
@@ -149,7 +149,7 @@ async function saveTask() {
     <div class="space-y-6">
         <div class="flex items-center justify-between ml-1">
             <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Plan Tasks ({{ tasks?.length || 0 }})</h3>
-            <button v-if="isOwner" @click="showAddTask = true" class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20 rounded-xl hover:bg-neon-cyan/20 transition-all">
+            <button v-if="isOwner" @click="showAddTask = true" class="px-4 py-2 text-sm font-bold uppercase tracking-widest bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20 rounded-xl hover:bg-neon-cyan/20 transition-all">
                 + Add Task
             </button>
         </div>
@@ -203,15 +203,15 @@ async function saveTask() {
             </div>
             <form @submit.prevent="addTask" class="p-6 space-y-4">
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Task Title</label>
+                    <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Task Title</label>
                     <input v-model="newTaskTitle" type="text" required autofocus class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all" />
                 </div>
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
+                    <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
                     <textarea v-model="newTaskDescription" rows="3" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all resize-none"></textarea>
                 </div>
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Priority</label>
+                    <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Priority</label>
                     <select v-model="newTaskPriority" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all">
                         <option value="low">Low</option>
                         <option value="medium">Medium</option>
@@ -235,16 +235,16 @@ async function saveTask() {
             </div>
             <form @submit.prevent="saveTask" class="p-6 space-y-4">
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Task Title</label>
+                    <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Task Title</label>
                     <input v-model="editingTask.title" type="text" required class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all" />
                 </div>
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
+                    <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
                     <textarea v-model="editingTask.description" rows="3" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all resize-none"></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1.5">
-                        <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Priority</label>
+                        <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Priority</label>
                         <select v-model="editingTask.priority" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all">
                             <option value="low">Low</option>
                             <option value="medium">Medium</option>
@@ -253,7 +253,7 @@ async function saveTask() {
                         </select>
                     </div>
                     <div class="space-y-1.5">
-                        <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Difficulty</label>
+                        <label class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Difficulty</label>
                         <select v-model="editingTask.difficulty" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all">
                             <option :value="null">None</option>
                             <option :value="1">1</option>
@@ -268,7 +268,7 @@ async function saveTask() {
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" v-model="editingTask.isHumanOnly" class="sr-only peer">
                         <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-surface-raised peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-neon-cyan"></div>
-                        <span class="ml-3 text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Human Only</span>
+                        <span class="ml-3 text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Human Only</span>
                     </label>
                 </div>
                 <button type="submit" class="w-full py-4 bg-neon-cyan text-cyan-950 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] hover:scale-[1.02] transition-all shadow-lg shadow-neon-cyan/20">

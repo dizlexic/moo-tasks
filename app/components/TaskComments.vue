@@ -80,7 +80,7 @@ onMounted(loadComments)
         <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-neon-cyan"></div>
       </div>
       <div v-else-if="comments.length === 0" class="text-center py-8 bg-gray-50 dark:bg-surface-raised/10 rounded-2xl border border-dashed border-gray-200 dark:border-surface-border/50">
-        <p class="text-xs text-gray-400 dark:text-gray-500 font-medium">No comments yet. Be the first to say something!</p>
+        <p class="text-sm text-gray-400 dark:text-gray-500 font-medium">No comments yet. Be the first to say something!</p>
       </div>
       <div v-else class="space-y-4">
         <div v-for="comment in comments" :key="comment.id" class="group flex gap-4">
@@ -91,10 +91,10 @@ onMounted(loadComments)
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-gray-900 dark:text-white">{{ comment.author }}</span>
               <div class="flex items-center gap-2">
-                <button @click="commentMarkdownStates[comment.id] = !commentMarkdownStates[comment.id]" class="text-[10px] text-gray-400 hover:text-neon-cyan">
+                <button @click="commentMarkdownStates[comment.id] = !commentMarkdownStates[comment.id]" class="text-xs text-gray-400 hover:text-neon-cyan">
                   {{ commentMarkdownStates[comment.id] ? 'Raw' : 'Rendered' }}
                 </button>
-                <span class="text-[10px] font-medium text-gray-400 dark:text-gray-600">{{ formatDate(comment.createdAt) }}</span>
+                <span class="text-xs font-medium text-gray-400 dark:text-gray-600">{{ formatDate(comment.createdAt) }}</span>
               </div>
             </div>
             <div class="bg-gray-50 dark:bg-surface-raised/40 rounded-2xl rounded-tl-none px-4 py-3 border border-gray-100 dark:border-surface-border/30">

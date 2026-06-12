@@ -55,7 +55,7 @@ onMounted(() => fetchInstructions())
         <h2 class="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Global MCP Instructions</h2>
         <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">These instructions are used by all boards unless overridden.</p>
       </div>
-      <NuxtLink to="/dashboard" class="text-xs font-bold uppercase tracking-widest text-neon-cyan hover:underline transition-all">← Back</NuxtLink>
+      <NuxtLink to="/dashboard" class="text-sm font-bold uppercase tracking-widest text-neon-cyan hover:underline transition-all">← Back</NuxtLink>
     </div>
 
     <div v-for="instr in instrList" :key="instr.id" class="bg-white dark:bg-surface-card rounded-3xl border border-gray-200 dark:border-surface-border p-8 shadow-xl dark:shadow-[0_0_40px_rgba(0,0,0,0.3)] space-y-6">
@@ -79,14 +79,14 @@ onMounted(() => fetchInstructions())
           v-if="!instr.isDefault"
           @click="reset(instr)"
           :disabled="saving === instr.id"
-          class="px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-red-500 dark:hover:text-neon-red transition-all active:scale-95 disabled:opacity-50"
+          class="px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-gray-500 hover:text-red-500 dark:hover:text-neon-red transition-all active:scale-95 disabled:opacity-50"
         >
           Reset to Default
         </button>
         <button
           @click="save(instr)"
           :disabled="saving === instr.id || editContent[instr.id] === instr.content"
-          class="px-8 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 disabled:opacity-50 transition-all shadow-lg shadow-neon-cyan/20 active:scale-95"
+          class="px-8 py-2.5 text-sm font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 disabled:opacity-50 transition-all shadow-lg shadow-neon-cyan/20 active:scale-95"
         >
           {{ saving === instr.id ? 'Saving...' : 'Save Changes' }}
         </button>

@@ -87,7 +87,7 @@ async function logout() {
           <span v-else class="text-xl font-black text-gray-900 dark:text-white transition-all min-w-0">
             <span class="tracking-tight truncate">{{ currentBoardName || siteName }}</span>
           </span>
-          <span v-if="currentBoardName && currentBoardDescription" class="hidden sm:inline text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 truncate max-w-sm">{{ currentBoardDescription }}</span>
+          <span v-if="currentBoardName && currentBoardDescription" class="hidden sm:inline text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 truncate max-w-sm">{{ currentBoardDescription }}</span>
         </div>
       </div>
       <div class="flex items-center gap-6">
@@ -98,13 +98,13 @@ async function logout() {
               aria-label="User menu"
               title="User menu"
               @click="showUserDropdown = !showUserDropdown"
-              class="flex items-center gap-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tighter hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
+              class="flex items-center gap-2 text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tighter hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
             >
               <span class="hidden sm:inline">{{ user?.name }}</span>
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                  <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              <span class="text-[10px] opacity-50" aria-hidden="true">▼</span>
+              <span class="text-xs opacity-50" aria-hidden="true">▼</span>
             </button>
             <div
               v-if="showUserDropdown"
@@ -117,7 +117,7 @@ async function logout() {
             >
               <NuxtLink
                 to="/dashboard"
-                class="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
+                class="flex items-center gap-2 px-4 py-2 text-sm font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
                 @click="showUserDropdown = false"
                 title="Go to dashboard"
               >
@@ -128,7 +128,7 @@ async function logout() {
               </NuxtLink>
               <NuxtLink
                 to="/account"
-                class="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
+                class="flex items-center gap-2 px-4 py-2 text-sm font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
                 @click="showUserDropdown = false"
                 title="Account settings"
               >
@@ -139,7 +139,7 @@ async function logout() {
               </NuxtLink>
               <NuxtLink
                 to="/plans"
-                class="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
+                class="flex items-center gap-2 px-4 py-2 text-sm font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
                 @click="showUserDropdown = false"
                 title="Manage task plans"
               >
@@ -150,7 +150,7 @@ async function logout() {
               </NuxtLink>
               <NuxtLink
                 to="/settings/instructions"
-                class="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
+                class="flex items-center gap-2 px-4 py-2 text-sm font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors"
                 @click="showUserDropdown = false"
                 title="View instructions"
               >
@@ -161,7 +161,7 @@ async function logout() {
               </NuxtLink>
               <button
                 @click="toggleDark(); showUserDropdown = false"
-                class="flex w-full items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors active:scale-95"
+                class="flex w-full items-center gap-2 px-4 py-2 text-sm font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-surface-raised hover:text-neon-cyan dark:hover:text-neon-cyan transition-colors active:scale-95"
                 title="Toggle theme"
               >
                 <svg v-if="!isDark" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -194,7 +194,7 @@ async function logout() {
     </main>
     <footer role="contentinfo" class="relative z-50 py-8 px-6 border-t border-gray-200 dark:border-surface-border/30 text-center">
       <div class="flex flex-col items-center gap-4">
-        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-600">
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-600">
           Built with <span class="text-neon-pink" aria-label="love">♥</span> by 🐄 <a href="https://buymeacoffee.com/dizlexic" target="_blank" rel="noopener noreferrer" class="hover:text-neon-cyan transition-all">dizlexic</a> •
           <NuxtLink to="/faq" target="_blank" class="hover:text-neon-cyan transition-all">FAQ</NuxtLink> •
           <NuxtLink to="/about" class="hover:text-neon-cyan transition-all">About</NuxtLink> •

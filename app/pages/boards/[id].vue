@@ -355,7 +355,7 @@ onUnmounted(() => stopSocket())
           </button>
           <button
             @click="showCreateForm = true"
-            class="flex items-center gap-2 px-2.5 sm:px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 transition-all hover:shadow-lg hover:shadow-neon-cyan/20 active:scale-95"
+            class="flex items-center gap-2 px-2.5 sm:px-6 py-2.5 text-sm font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 transition-all hover:shadow-lg hover:shadow-neon-cyan/20 active:scale-95"
             title="Create new task"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -426,21 +426,21 @@ onUnmounted(() => stopSocket())
         <div class="flex items-center gap-6 mb-6 border-b border-gray-200 dark:border-surface-border">
           <button
             @click="activeTab = 'general'"
-            class="pb-2 text-xs font-bold uppercase tracking-widest transition-colors"
+            class="pb-2 text-sm font-bold uppercase tracking-widest transition-colors"
             :class="activeTab === 'general' ? 'text-neon-cyan border-b-2 border-neon-cyan' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'"
           >
             General
           </button>
           <button
             @click="activeTab = 'mcp'"
-            class="pb-2 text-xs font-bold uppercase tracking-widest transition-colors"
+            class="pb-2 text-sm font-bold uppercase tracking-widest transition-colors"
             :class="activeTab === 'mcp' ? 'text-neon-cyan border-b-2 border-neon-cyan' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'"
           >
             MCP
           </button>
           <button
             @click="activeTab = 'logs'"
-            class="pb-2 text-xs font-bold uppercase tracking-widest transition-colors"
+            class="pb-2 text-sm font-bold uppercase tracking-widest transition-colors"
             :class="activeTab === 'logs' ? 'text-neon-cyan border-b-2 border-neon-cyan' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'"
           >
             Logs
@@ -452,7 +452,7 @@ onUnmounted(() => stopSocket())
             <!-- General Board Settings -->
             <div v-if="board.role === 'owner'" class="space-y-4">
               <div class="space-y-3">
-                <label class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">Board Name</label>
+                <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">Board Name</label>
                 <input
                   v-model="newName"
                   type="text"
@@ -462,7 +462,7 @@ onUnmounted(() => stopSocket())
               </div>
 
               <div class="space-y-3">
-                <label class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">Board Description</label>
+                <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">Board Description</label>
                 <textarea
                   v-model="newDescription"
                   class="w-full bg-gray-50 dark:bg-surface-dark/50 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 transition-all"
@@ -474,26 +474,26 @@ onUnmounted(() => stopSocket())
               <button
                 @click="updateBoardInfo"
                 :disabled="!newName || (newName === board.name && newDescription === (board.description || ''))"
-                class="w-full text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-all disabled:opacity-50 shadow-sm active:scale-95"
+                class="w-full text-sm font-bold uppercase tracking-widest px-4 py-2 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-all disabled:opacity-50 shadow-sm active:scale-95"
               >
                 Save Changes
               </button>
 
               <div class="mt-8 border-t border-gray-200 dark:border-surface-border pt-8">
-                <h3 class="text-xs font-bold uppercase tracking-widest text-gray-900 dark:text-white mb-4">Transfer Ownership</h3>
+                <h3 class="text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-white mb-4">Transfer Ownership</h3>
                 <div v-if="activeBoardTransfer" class="bg-neon-orange/10 border border-neon-orange/20 rounded-xl p-4">
                   <p class="text-sm text-gray-700 dark:text-gray-300">A pending transfer to {{ activeBoardTransfer.recipientEmail }} exists.</p>
                   <button @click="cancelTransfer" class="mt-2 text-xs font-bold text-red-600 dark:text-neon-red">Cancel Transfer</button>
                 </div>
                 <div v-else class="flex gap-2">
                   <input v-model="recipientEmail" type="email" placeholder="Recipient email" class="flex-1 bg-gray-50 dark:bg-surface-dark/50 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white" />
-                  <button @click="requestTransfer" class="text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl bg-neon-cyan text-white">Transfer</button>
+                  <button @click="requestTransfer" class="text-sm font-bold uppercase tracking-widest px-4 py-2 rounded-xl bg-neon-cyan text-white">Transfer</button>
                 </div>
               </div>
 
               <div v-if="activeBoardTransfer && activeBoardTransfer.recipientEmail === userEmail" class="mt-8 border-t border-gray-200 dark:border-surface-border pt-8">
-                <h3 class="text-xs font-bold uppercase tracking-widest text-gray-900 dark:text-white mb-4">Accept Ownership</h3>
-                <button @click="acceptTransfer" class="text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl bg-neon-cyan text-white">Accept Ownership</button>
+                <h3 class="text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-white mb-4">Accept Ownership</h3>
+                <button @click="acceptTransfer" class="text-sm font-bold uppercase tracking-widest px-4 py-2 rounded-xl bg-neon-cyan text-white">Accept Ownership</button>
               </div>
             </div>
           </div>
@@ -519,7 +519,7 @@ onUnmounted(() => stopSocket())
           <div class="space-y-6">
             <!-- MCP Bearer Token, Privacy, Functions -->
             <div v-if="board.role === 'owner'" class="space-y-3">
-              <label class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">MCP Bearer Token</label>
+              <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">MCP Bearer Token</label>
               <div v-if="mcpToken" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <div class="flex-1 flex items-center gap-3 bg-gray-50 dark:bg-surface-dark/50 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-2.5">
                   <code class="flex-1 text-[11px] font-mono truncate text-gray-700 dark:text-neon-cyan/80">
@@ -543,16 +543,16 @@ onUnmounted(() => stopSocket())
                   </div>
                 </div>
                 <div class="flex gap-2">
-                  <button @click="generateToken" :disabled="tokenLoading" class="flex-1 sm:flex-none text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-orange/20 bg-neon-orange/5 text-orange-600 dark:text-neon-orange hover:bg-neon-orange/15 transition-all disabled:opacity-50">
+                  <button @click="generateToken" :disabled="tokenLoading" class="flex-1 sm:flex-none text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-orange/20 bg-neon-orange/5 text-orange-600 dark:text-neon-orange hover:bg-neon-orange/15 transition-all disabled:opacity-50">
                     🔄 Rotate
                   </button>
-                  <button @click="revokeToken" :disabled="tokenLoading" class="flex-1 sm:flex-none text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-red/20 bg-neon-red/5 text-red-600 dark:text-neon-red hover:bg-neon-red/15 transition-all disabled:opacity-50">
+                  <button @click="revokeToken" :disabled="tokenLoading" class="flex-1 sm:flex-none text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-red/20 bg-neon-red/5 text-red-600 dark:text-neon-red hover:bg-neon-red/15 transition-all disabled:opacity-50">
                     🗑 Revoke
                   </button>
                 </div>
               </div>
               <div v-else>
-                <button @click="generateToken" :disabled="tokenLoading" class="text-[10px] font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl border border-neon-cyan/20 bg-neon-cyan/5 text-cyan-600 dark:text-neon-cyan hover:bg-neon-cyan/15 transition-all disabled:opacity-50 shadow-sm shadow-neon-cyan/5">
+                <button @click="generateToken" :disabled="tokenLoading" class="text-sm font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl border border-neon-cyan/20 bg-neon-cyan/5 text-cyan-600 dark:text-neon-cyan hover:bg-neon-cyan/15 transition-all disabled:opacity-50 shadow-sm shadow-neon-cyan/5">
                   🔑 Generate Token
                 </button>
                 <p v-if="!board.mcpPublic" class="text-[10px] font-semibold text-red-500 dark:text-neon-red/80 mt-2 ml-1">
@@ -565,7 +565,7 @@ onUnmounted(() => stopSocket())
             <div v-if="board.role === 'owner'" class="bg-gray-50 dark:bg-surface-raised/30 rounded-xl p-4 border border-gray-100 dark:border-surface-border/50">
               <div class="flex items-center justify-between mb-4">
                 <div>
-                  <label class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block mb-1">Public MCP Endpoint</label>
+                  <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block mb-1">Public MCP Endpoint</label>
                   <p class="text-[10px] font-medium text-gray-500 dark:text-gray-500 leading-relaxed">Allow access to this board's MCP server without a bearer token.</p>
                 </div>
                 <button
@@ -584,7 +584,7 @@ onUnmounted(() => stopSocket())
               <div class="mt-4 pt-4 border-t border-gray-100 dark:border-surface-border">
                 <ColumnPermissions :board-id="boardId" />
                 <div class="flex items-center justify-between mb-3 mt-6">
-                  <label class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block">Enabled MCP Functions</label>
+                  <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block">Enabled MCP Functions</label>
                   <div class="flex items-center gap-2">
                     <span class="text-[10px] text-gray-500 uppercase tracking-widest">All</span>
                     <button
@@ -621,13 +621,13 @@ onUnmounted(() => stopSocket())
              <!-- MCP Project Setup -->
             <div class="space-y-4">
               <div class="space-y-2 ml-1">
-                <label class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300">Project Integration</label>
+                <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300">Project Integration</label>
                 <p class="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed">
                   Copy <code class="font-mono bg-gray-100 dark:bg-surface-raised px-1 py-0.5 rounded">AGENTS.md</code> to your project root to enable task discovery and MCP integration.
                 </p>
                 <button
                   @click="showAgentsMarkdown = true"
-                  class="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all shadow-sm bg-neon-purple/10 text-neon-purple border border-neon-purple/20 hover:bg-neon-purple/20"
+                  class="text-sm font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all shadow-sm bg-neon-purple/10 text-neon-purple border border-neon-purple/20 hover:bg-neon-purple/20"
                 >
                   📄 View AGENTS.md
                 </button>
@@ -638,12 +638,12 @@ onUnmounted(() => stopSocket())
                 <div class="flex items-center justify-between ml-1 cursor-pointer" @click="showMcpConfig = !showMcpConfig">
                   <div class="flex items-center gap-2">
                     <span class="text-gray-400">{{ showMcpConfig ? '▼' : '▶' }}</span>
-                    <label class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300">MCP Client Configuration</label>
+                    <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300">MCP Client Configuration</label>
                   </div>
                   <div class="flex gap-2" @click.stop>
                     <button
                       @click="copyMcpConfig"
-                      class="text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-xl transition-all shadow-sm"
+                      class="text-sm font-bold uppercase tracking-widest px-4 py-2 rounded-xl transition-all shadow-sm"
                       :class="mcpConfigCopied
                         ? 'bg-neon-green text-gray-900 shadow-neon-green/20'
                         : 'bg-gray-100 dark:bg-surface-raised text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'"
@@ -669,18 +669,18 @@ onUnmounted(() => stopSocket())
           <!-- Export Board -->
           <div class="flex items-center gap-2">
             <input type="checkbox" v-model="exportComments" id="export-comments" class="rounded border-gray-300 text-neon-cyan focus:ring-neon-cyan" />
-            <label for="export-comments" class="text-[10px] font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 cursor-pointer">Export Comments</label>
+            <label for="export-comments" class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 cursor-pointer">Export Comments</label>
           </div>
           <button
             @click="exportBoard"
-            class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-200 transition-all active:scale-95"
+            class="px-4 py-2 text-sm font-bold uppercase tracking-widest bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-200 transition-all active:scale-95"
           >
             Export Board
           </button>
           <!-- Delete Board -->
           <button
             @click="showDeleteModal = true"
-            class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all active:scale-95"
+            class="px-4 py-2 text-sm font-bold uppercase tracking-widest bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all active:scale-95"
           >
             Delete Board
           </button>
@@ -699,12 +699,12 @@ onUnmounted(() => stopSocket())
                    @open-mass-action="openMassAction"
                    @generate-changelog="showChangelog = true"
       />
-      <TaskListView v-else 
+      <TaskListView v-else
                     ref="kanbanBoardRef"
-                    :board-id="boardId" 
-                    :show-archive="showArchive" 
-                    :search-query="searchQuery" 
-                    @task-click="selectedTask = $event" 
+                    :board-id="boardId"
+                    :show-archive="showArchive"
+                    :search-query="searchQuery"
+                    @task-click="selectedTask = $event"
                     @open-mass-action="openMassAction"
                     @generate-changelog="showChangelog = true"
       />

@@ -59,14 +59,14 @@ async function onSubmit() {
 
       <form @submit.prevent="onSubmit" class="space-y-6">
         <div class="space-y-2">
-          <label for="email-field" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Email</label>
+          <label for="email-field" class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Email</label>
           <input id="email-field" name="email" v-model="email" type="email" required autocomplete="username" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-600" placeholder="you@example.com" />
         </div>
         <div class="space-y-2">
-          <label for="password-field" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Password</label>
+          <label for="password-field" class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Password</label>
           <input id="password-field" name="password" v-model="password" type="password" required autocomplete="current-password" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-600" placeholder="••••••••" />
         </div>
-        <button id="login-submit-button" type="submit" :disabled="loading" class="w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-neon-cyan/20 active:scale-[0.98]">
+        <button id="login-submit-button" type="submit" :disabled="loading" class="w-full px-4 py-3.5 text-sm font-black uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-neon-cyan/20 active:scale-[0.98]">
           {{ loading ? 'Signing in...' : 'Sign In' }}
         </button>
       </form>

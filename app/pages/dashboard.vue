@@ -109,7 +109,7 @@ function onDelete(board: any) {
   <main class="p-6 md:p-8 max-w-6xl mx-auto space-y-12">
     <!-- Invitations Section -->
     <div v-if="invitations.length > 0" class="space-y-5">
-      <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 flex items-center gap-2 ml-1">
+      <h2 class="text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 flex items-center gap-2 ml-1">
         <span class="flex h-2 w-2 rounded-full bg-neon-cyan shadow-[0_0_8px_rgba(0,240,255,0.6)] animate-pulse"></span>
         Pending Invitations
       </h2>
@@ -126,13 +126,13 @@ function onDelete(board: any) {
           <div class="flex gap-3 mt-6">
             <button
               @click="acceptInvitation(invitation.id)"
-              class="flex-1 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 rounded-xl hover:bg-neon-cyan/90 transition-all shadow-lg shadow-neon-cyan/10 active:scale-95"
+              class="flex-1 px-4 py-2.5 text-sm font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 rounded-xl hover:bg-neon-cyan/90 transition-all shadow-lg shadow-neon-cyan/10 active:scale-95"
             >
               Accept
             </button>
             <button
               @click="rejectInvitation(invitation.id)"
-              class="flex-1 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-gray-50 dark:bg-surface-raised text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-surface-border rounded-xl hover:bg-gray-100 dark:hover:bg-surface-hover transition-all active:scale-95"
+              class="flex-1 px-4 py-2.5 text-sm font-bold uppercase tracking-widest bg-gray-50 dark:bg-surface-raised text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-surface-border rounded-xl hover:bg-gray-100 dark:hover:bg-surface-hover transition-all active:scale-95"
             >
               Decline
             </button>
@@ -143,7 +143,7 @@ function onDelete(board: any) {
 
     <!-- Sent Invitations Section -->
     <div v-if="sentInvitations.length > 0" class="space-y-5">
-      <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1">
+      <h2 class="text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1">
         Sent Invitations
       </h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -162,7 +162,7 @@ function onDelete(board: any) {
           <div class="mt-6">
             <button
               @click="cancelInvitation(invitation.id)"
-              class="w-full px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-700 dark:text-neon-red/70 dark:hover:text-neon-red transition-all"
+              class="w-full px-4 py-2 text-sm font-bold uppercase tracking-widest text-red-500 hover:text-red-700 dark:text-neon-red/70 dark:hover:text-neon-red transition-all"
             >
               Cancel Invitation
             </button>
@@ -173,25 +173,25 @@ function onDelete(board: any) {
 
     <div class="space-y-8">
       <div class="flex items-center justify-between ml-1">
-        <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">My Boards</h2>
+        <h2 class="text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">My Boards</h2>
         <div class="flex gap-2">
             <NuxtLink
                 to="/plans"
-                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-gray-50 dark:bg-surface-raised/50 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-surface-border rounded-xl hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan transition-all active:scale-95 flex items-center gap-2"
+                class="px-4 py-2.5 text-sm font-bold uppercase tracking-widest bg-gray-50 dark:bg-surface-raised/50 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-surface-border rounded-xl hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan transition-all active:scale-95 flex items-center gap-2"
             >
                 <span class="text-xs">📋</span>
                 Plans
             </NuxtLink>
             <button
                 @click="triggerImport"
-                class="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-gray-100 dark:bg-surface-raised text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-surface-hover transition-all active:scale-95"
+                class="px-4 py-2.5 text-sm font-bold uppercase tracking-widest bg-gray-100 dark:bg-surface-raised text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-surface-hover transition-all active:scale-95"
             >
                 Import
             </button>
             <input type="file" ref="importInput" class="hidden" accept=".json" @change="importBoard" />
             <button
               @click="showCreate = true"
-              class="px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 transition-all hover:shadow-lg hover:shadow-neon-cyan/20 active:scale-95"
+              class="px-6 py-2.5 text-sm font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 transition-all hover:shadow-lg hover:shadow-neon-cyan/20 active:scale-95"
             >
               + New Board
             </button>
@@ -216,7 +216,7 @@ function onDelete(board: any) {
 
       <div v-else class="space-y-12">
         <div v-if="favoriteBoards.length > 0">
-            <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1 mb-6">Favorite Boards</h2>
+            <h2 class="text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1 mb-6">Favorite Boards</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <NuxtLink
                   v-for="board in favoriteBoards.slice(0, 6)"
@@ -233,7 +233,7 @@ function onDelete(board: any) {
                   </div>
 
                   <div class="flex items-center justify-between mt-auto pt-6 border-t border-gray-100 dark:border-surface-border/50">
-                    <button @click.prevent="toggleFavorite(board.id, !board.isFavorite)" class="text-[10px] font-bold uppercase tracking-widest text-yellow-500 hover:text-yellow-700 transition-all">
+                    <button @click.prevent="toggleFavorite(board.id, !board.isFavorite)" class="text-sm font-bold uppercase tracking-widest text-yellow-500 hover:text-yellow-700 transition-all">
                       {{ board.isFavorite ? '★ Unfavorite' : '☆ Favorite' }}
                     </button>
                     <span class="text-xs opacity-0 group-hover:opacity-100 transition-opacity text-neon-cyan">Open →</span>
@@ -243,7 +243,7 @@ function onDelete(board: any) {
         </div>
 
         <div>
-            <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1 mb-6">Other Boards</h2>
+            <h2 class="text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1 mb-6">Other Boards</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <NuxtLink
                   v-for="board in paginatedBoards"
@@ -260,7 +260,7 @@ function onDelete(board: any) {
                   </div>
 
                   <div class="flex items-center justify-between mt-auto pt-6 border-t border-gray-100 dark:border-surface-border/50">
-                    <button @click.prevent="toggleFavorite(board.id, !board.isFavorite)" class="text-[10px] font-bold uppercase tracking-widest text-yellow-500 hover:text-yellow-700 transition-all">
+                    <button @click.prevent="toggleFavorite(board.id, !board.isFavorite)" class="text-sm font-bold uppercase tracking-widest text-yellow-500 hover:text-yellow-700 transition-all">
                       {{ board.isFavorite ? '★ Unfavorite' : '☆ Favorite' }}
                     </button>
                     <span class="text-xs opacity-0 group-hover:opacity-100 transition-opacity text-neon-cyan">Open →</span>
@@ -315,11 +315,11 @@ function onDelete(board: any) {
 
             <form @submit.prevent="onCreate" class="space-y-6">
               <div class="space-y-1.5">
-                <label for="board-name" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Board Name *</label>
+                <label for="board-name" class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Board Name *</label>
                 <input id="board-name" v-model="newName" type="text" required autofocus class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-base font-medium focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400" placeholder="e.g. Project X" />
               </div>
               <div class="space-y-1.5">
-                <label for="board-description" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
+                <label for="board-description" class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Description</label>
                 <textarea id="board-description" v-model="newDescription" rows="3" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none resize-none transition-all placeholder:text-gray-400" placeholder="What's this board for?" />
               </div>
               <div class="flex justify-end gap-3 pt-4">

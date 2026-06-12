@@ -48,15 +48,15 @@ const difficultyColors: Record<number, string> = {
     @contextmenu="emit('contextmenu', $event, task)"
   >
     <div class="flex items-start justify-between gap-2 mb-1">
-      <h4 class="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug group-hover:text-black dark:group-hover:text-white transition-colors">{{ task.title }}</h4>
+      <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-snug group-hover:text-black dark:group-hover:text-white transition-colors">{{ task.title }}</h4>
       <span
-        class="shrink-0 text-[8px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider"
+        class="shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider"
         :class="priorityColors[task.priority] || priorityColors.medium"
       >
         {{ task.priority }}
       </span>
     </div>
-    <p v-if="task.description" class="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2 mb-2 leading-relaxed">
+    <p v-if="task.description" class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2 leading-relaxed">
       {{ task.description }}
     </p>
 
@@ -65,25 +65,25 @@ const difficultyColors: Record<number, string> = {
         v-for="tag in taskTagsList.slice(0, 4)"
         :key="tag.id"
         :title="tag.name"
-        class="w-4 h-4 rounded-full flex items-center justify-center text-[8px]"
+        class="w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
         :style="{ backgroundColor: tag.color, color: 'white' }"
       >
         {{ getIcon(tag.icon) }}
       </div>
-      <div v-if="taskTagsList.length > 4" class="text-[10px] text-gray-500 font-bold ml-1">+{{ taskTagsList.length - 4 }}</div>
+      <div v-if="taskTagsList.length > 4" class="text-xs text-gray-500 font-bold ml-1">+{{ taskTagsList.length - 4 }}</div>
     </div>
 
     <div class="flex items-center justify-between gap-2 mt-auto">
       <div class="flex items-center gap-2">
-        <div v-if="task.assignee" class="flex items-center gap-1.5 text-[10px] font-medium text-gray-400 dark:text-gray-500">
+        <div v-if="task.assignee" class="flex items-center gap-1.5 text-xs font-medium text-gray-400 dark:text-gray-500">
           <span class="opacity-70 text-xs" aria-hidden="true">🤖</span>
           <span class="truncate max-w-[100px]">{{ task.assignee }}</span>
         </div>
-        <span v-if="task.difficulty" class="text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-tight" :class="difficultyColors[task.difficulty] || 'bg-neon-purple/10 text-purple-600 dark:text-neon-purple border border-neon-purple/20'">
+        <span v-if="task.difficulty" class="text-xs font-bold px-1.5 py-0.5 rounded-md uppercase tracking-tight" :class="difficultyColors[task.difficulty] || 'bg-neon-purple/10 text-purple-600 dark:text-neon-purple border border-neon-purple/20'">
           {{ task.difficulty }}
         </span>
       </div>
-      <span v-if="(task as any).parentTaskId" class="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20 uppercase tracking-tight">Correction</span>
+      <span v-if="(task as any).parentTaskId" class="text-xs font-bold px-1.5 py-0.5 rounded-md bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20 uppercase tracking-tight">Correction</span>
     </div>
   </div>
 </template>

@@ -25,11 +25,11 @@ const emit = defineEmits<{
         v-if="!isCorrectionMode"
         type="button"
         @click="emit('startCorrection')"
-        class="text-[10px] font-bold uppercase tracking-widest bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20 px-3 py-1.5 rounded-xl hover:bg-neon-orange/20 transition-all"
+        class="text-sm font-bold uppercase tracking-widest bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20 px-3 py-1.5 rounded-xl hover:bg-neon-orange/20 transition-all"
       >
         Request Correction
       </button>
-      <div v-else class="text-[10px] font-bold uppercase tracking-widest text-neon-orange animate-pulse">
+      <div v-else class="text-sm font-bold uppercase tracking-widest text-neon-orange animate-pulse">
         Correction in progress...
       </div>
     </div>
@@ -49,7 +49,7 @@ const emit = defineEmits<{
           <span class="text-neon-orange opacity-50 group-hover:opacity-100 transition-opacity" aria-hidden="true">↩</span>
           <span class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{{ c.title }}</span>
         </div>
-        <span class="text-[9px] font-bold uppercase tracking-tighter px-1.5 py-0.5 rounded bg-gray-100 dark:bg-surface-hover text-gray-500 dark:text-gray-400">{{ c.status }}</span>
+        <span class="text-xs font-bold uppercase tracking-tighter px-1.5 py-0.5 rounded bg-gray-100 dark:bg-surface-hover text-gray-500 dark:text-gray-400">{{ c.status }}</span>
       </div>
     </div>
   </div>

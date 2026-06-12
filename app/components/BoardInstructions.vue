@@ -58,7 +58,7 @@ onMounted(() => fetchInstructions())
 <template>
   <div class="space-y-6">
     <div class="ml-1">
-      <h3 class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 mb-1">MCP Instructions</h3>
+      <h3 class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 mb-1">MCP Instructions</h3>
       <p class="text-[10px] font-medium text-gray-500 dark:text-gray-400 leading-relaxed">Override global instructions for this board. Reset removes the override and falls back to global.</p>
     </div>
 
@@ -88,14 +88,14 @@ onMounted(() => fetchInstructions())
           v-if="instr.source === 'board'"
           @click="reset(instr)"
           :disabled="saving === instr.id"
-          class="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-red-500 dark:hover:text-neon-red transition-all active:scale-95 disabled:opacity-50"
+          class="px-4 py-2 text-sm font-bold uppercase tracking-widest text-gray-500 hover:text-red-500 dark:hover:text-neon-red transition-all active:scale-95 disabled:opacity-50"
         >
           Reset to Global
         </button>
         <button
           @click="save(instr)"
           :disabled="saving === instr.id || editContent[instr.id] === instr.content"
-          class="px-5 py-2 text-[10px] font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 disabled:opacity-50 transition-all shadow-md shadow-neon-cyan/10 active:scale-95"
+          class="px-5 py-2 text-sm font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 dark:text-gray-900 rounded-xl hover:bg-neon-cyan/90 disabled:opacity-50 transition-all shadow-md shadow-neon-cyan/10 active:scale-95"
         >
           {{ saving === instr.id ? 'Saving...' : (instr.source === 'global' ? 'Create Override' : 'Save Changes') }}
         </button>

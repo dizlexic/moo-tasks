@@ -69,8 +69,8 @@ defineExpose({ open })
       @click.stop
     >
       <div class="py-1">
-        <div class="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-surface-border">Status</div>
-        <button v-for="s in ['backlog', 'todo', 'in_progress', 'review', 'done', 'archive'] as TaskStatus[]" :key="s" 
+        <div class="px-3 py-1.5 text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-surface-border">Status</div>
+        <button v-for="s in ['backlog', 'todo', 'in_progress', 'review', 'done', 'archive'] as TaskStatus[]" :key="s"
           @click="updateStatus(s)"
           class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-surface-hover capitalize"
         >
@@ -78,8 +78,8 @@ defineExpose({ open })
         </button>
       </div>
       <div class="py-1 border-t border-gray-100 dark:border-surface-border">
-        <div class="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-surface-border">Priority</div>
-        <button v-for="p in ['low', 'medium', 'high', 'critical'] as TaskPriority[]" :key="p" 
+        <div class="px-3 py-1.5 text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-surface-border">Priority</div>
+        <button v-for="p in ['low', 'medium', 'high', 'critical'] as TaskPriority[]" :key="p"
           @click="updatePriority(p)"
           class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-surface-hover capitalize"
         >

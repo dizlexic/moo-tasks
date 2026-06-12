@@ -31,7 +31,7 @@ function downloadChangelog() {
 <template>
   <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="changelog-modal-title">
     <div class="absolute inset-0 bg-gray-950/60 backdrop-blur-sm" @mousedown="emit('close')"></div>
-    
+
     <div class="relative w-full max-w-3xl bg-white dark:bg-surface-card rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100 dark:border-surface-border animate-in fade-in zoom-in duration-200">
       <!-- Header -->
       <div class="p-6 border-b border-gray-100 dark:border-surface-border/50 flex items-center justify-between shrink-0 bg-gray-50/50 dark:bg-surface-raised/20">
@@ -41,7 +41,7 @@ function downloadChangelog() {
           </h2>
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1">Summarize completed tasks into a markdown report.</p>
         </div>
-        <button 
+        <button
           @click="emit('close')"
           class="p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-surface-hover transition-all text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
         >
@@ -53,15 +53,15 @@ function downloadChangelog() {
 
       <!-- Settings -->
       <div class="px-6 py-4 border-b border-gray-100 dark:border-surface-border/50 flex items-center gap-4 bg-gray-50/30 dark:bg-surface-dark/10">
-        <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Template:</label>
+        <label class="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Template:</label>
         <div class="flex gap-2">
-          <button 
-            v-for="t in ['simple', 'detailed', 'priority']" 
+          <button
+            v-for="t in ['simple', 'detailed', 'priority']"
             :key="t"
             @click="template = t"
             class="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border"
-            :class="template === t 
-              ? 'bg-neon-cyan/10 text-neon-cyan border-neon-cyan/30 shadow-sm shadow-neon-cyan/10' 
+            :class="template === t
+              ? 'bg-neon-cyan/10 text-neon-cyan border-neon-cyan/30 shadow-sm shadow-neon-cyan/10'
               : 'bg-white dark:bg-surface-raised text-gray-400 dark:text-gray-500 border-gray-200 dark:border-surface-border hover:text-gray-600 dark:hover:text-gray-300'"
           >
             {{ t }}
@@ -87,7 +87,7 @@ function downloadChangelog() {
 
       <!-- Footer -->
       <div class="p-6 border-t border-gray-100 dark:border-surface-border/50 flex items-center justify-end gap-3 shrink-0">
-        <button 
+        <button
           @click="downloadChangelog"
           :disabled="pending"
           class="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-gray-200 dark:border-surface-border text-gray-600 dark:text-gray-300 font-bold text-xs uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-surface-hover transition-all disabled:opacity-50"
@@ -97,7 +97,7 @@ function downloadChangelog() {
           </svg>
           Download .md
         </button>
-        <button 
+        <button
           @click="copyChangelog"
           :disabled="pending"
           class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-neon-cyan text-cyan-950 dark:text-gray-900 font-bold text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-neon-cyan/20 disabled:opacity-50"

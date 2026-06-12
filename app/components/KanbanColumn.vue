@@ -83,7 +83,7 @@ defineExpose({ resetSelection })
     <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-surface-border/50">
       <div class="flex items-center gap-2">
         <h3
-          class="text-xs font-bold uppercase tracking-widest"
+          class="text-sm font-bold uppercase tracking-widest"
           :class="col.text"
         >
           {{ title }}
@@ -91,35 +91,35 @@ defineExpose({ resetSelection })
         <button
           v-if="tasks.length > 0"
           @click="toggleSelectMode"
-          class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
         >
           {{ isSelectMode ? 'Cancel' : 'Select' }}
         </button>
         <button
           v-if="isSelectMode && tasks.length > 0"
           @click="toggleSelectAll"
-          class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
         >
           {{ isAllSelected ? 'Deselect All' : 'Select All' }}
         </button>
         <button
           v-if="status === 'done' && tasks.length > 1"
           @click="emit('archiveAll')"
-          class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
         >
           Archive All
         </button>
         <button
           v-if="status === 'done' && tasks.length > 0"
           @click="emit('generateChangelog')"
-          class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
         >
           Changelog
         </button>
       </div>
       <div v-if="isSelectMode && selectedTaskIds.size > 0" class="flex gap-2">
         <button
-          class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-neon-cyan bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
+          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-neon-cyan bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
           @click="$emit('openMassAction', Array.from(selectedTaskIds))"
         >
           Update ({{ selectedTaskIds.size }})
@@ -127,7 +127,7 @@ defineExpose({ resetSelection })
       </div>
       <span
         v-else
-        class="text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center"
+        class="text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center"
         :class="col.badge"
         :aria-label="`${tasks.length} tasks`"
       >
@@ -149,28 +149,28 @@ defineExpose({ resetSelection })
     >
       <template #item="{ element }">
         <div :data-id="element.id" class="flex items-center gap-2">
-          <input 
+          <input
             v-if="isSelectMode"
-            type="checkbox" 
+            type="checkbox"
             :checked="selectedTaskIds.has(element.id)"
             @change="toggleTaskSelection(element.id)"
             class="rounded border-gray-300 text-neon-cyan focus:ring-neon-cyan"
           />
-          <TaskCard 
+          <TaskCard
             :class="{'flex-1': isSelectMode}"
-            :task="element" 
-            :tags="tags" 
+            :task="element"
+            :tags="tags"
             :task-tags="taskTags"
-            @click="emit('taskClick', element)" 
-            @contextmenu="emit('contextmenu', $event, element)" 
+            @click="emit('taskClick', element)"
+            @contextmenu="emit('contextmenu', $event, element)"
           />
         </div>
       </template>
       <template #footer>
         <div v-if="tasks.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
           <div class="text-2xl mb-2 opacity-30" aria-hidden="true">📋</div>
-          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600">No tasks</p>
-          <p class="text-[9px] text-gray-400 dark:text-gray-600 mt-0.5">Drag tasks here</p>
+          <p class="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-600">No tasks</p>
+          <p class="text-xs text-gray-400 dark:text-gray-600 mt-0.5">Drag tasks here</p>
         </div>
       </template>
     </draggable>

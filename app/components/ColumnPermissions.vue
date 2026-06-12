@@ -20,7 +20,7 @@ onMounted(fetchColumns)
 
 <template>
   <div class="space-y-4">
-    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300">Column Permissions</h3>
+    <h3 class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300">Column Permissions</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div v-for="column in columns" :key="column.id" class="bg-gray-50 dark:bg-surface-raised/30 rounded-xl p-4 border border-gray-100 dark:border-surface-border/50">
         <h4 class="text-sm font-bold text-gray-900 dark:text-white mb-2">{{ column.name }}</h4>

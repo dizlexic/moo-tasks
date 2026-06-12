@@ -59,18 +59,18 @@ async function onSubmit() {
 
       <form @submit.prevent="onSubmit" class="space-y-5">
         <div class="space-y-1.5">
-          <label for="reg-name-field" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Name</label>
+          <label for="reg-name-field" class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Name</label>
           <input id="reg-name-field" name="name" v-model="name" type="text" required autocomplete="name" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400" placeholder="Your name" />
         </div>
         <div class="space-y-1.5">
-          <label for="reg-email-field" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Email</label>
+          <label for="reg-email-field" class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Email</label>
           <input id="reg-email-field" name="email" v-model="email" type="email" required autocomplete="email" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400" placeholder="you@example.com" />
         </div>
         <div class="space-y-1.5">
-          <label for="reg-password-field" class="block text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Password</label>
+          <label for="reg-password-field" class="block text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 ml-1">Password</label>
           <input id="reg-password-field" name="password" v-model="password" type="password" required minlength="8" autocomplete="new-password" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none transition-all placeholder:text-gray-400" placeholder="At least 8 characters" />
         </div>
-        <button id="register-submit-button" type="submit" :disabled="loading" class="w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest bg-neon-purple text-white rounded-xl hover:bg-neon-purple/90 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-neon-purple/20 active:scale-[0.98]">
+        <button id="register-submit-button" type="submit" :disabled="loading" class="w-full px-4 py-3.5 text-sm font-black uppercase tracking-widest bg-neon-purple text-white rounded-xl hover:bg-neon-purple/90 disabled:opacity-50 transition-all hover:shadow-lg hover:shadow-neon-purple/20 active:scale-[0.98]">
           {{ loading ? 'Creating account...' : 'Create Account' }}
         </button>
       </form>

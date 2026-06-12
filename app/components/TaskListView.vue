@@ -153,13 +153,13 @@ async function onArchiveAll() {
       >
         <div class="flex items-center gap-4">
           <span
-            class="text-[10px] font-black rounded-full px-2.5 py-1 min-w-[2rem] text-center uppercase tracking-tighter"
+            class="text-xs font-black rounded-full px-2.5 py-1 min-w-[2rem] text-center uppercase tracking-tighter"
             :class="COLUMN_COLORS[col.status].badge"
           >
             {{ localTasksByStatus[col.status]?.length || 0 }}
           </span>
           <h3
-            class="text-xs font-bold uppercase tracking-widest"
+            class="text-sm font-bold uppercase tracking-widest"
             :class="COLUMN_COLORS[col.status].text"
           >
             {{ col.title }}
@@ -168,35 +168,35 @@ async function onArchiveAll() {
             <button
               v-if="(localTasksByStatus[col.status]?.length || 0) > 0"
               @click="toggleSelectMode(col.status)"
-              class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
             >
               {{ isSelectMode[col.status] ? 'Cancel' : 'Select' }}
             </button>
             <button
               v-if="isSelectMode[col.status] && (localTasksByStatus[col.status]?.length || 0) > 0"
               @click="toggleSelectAll(col.status)"
-              class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
             >
               {{ isAllSelected(col.status) ? 'Deselect All' : 'Select All' }}
             </button>
             <button
               v-if="isSelectMode[col.status] && selectedTaskIds[col.status]?.size > 0"
               @click="emit('openMassAction', Array.from(selectedTaskIds[col.status]))"
-              class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-neon-cyan bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
+              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-neon-cyan bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
             >
               Update ({{ selectedTaskIds[col.status]?.size }})
             </button>
             <button
               v-if="col.status === 'done' && (localTasksByStatus['done']?.length || 0) > 1 && !isSelectMode[col.status]"
               @click="onArchiveAll"
-              class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
             >
               Archive All
             </button>
             <button
               v-if="col.status === 'done' && (localTasksByStatus['done']?.length || 0) > 0"
               @click="emit('generateChangelog')"
-              class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
             >
               Changelog
             </button>
@@ -220,7 +220,7 @@ async function onArchiveAll() {
         enter-to-class="transform translate-y-0 opacity-100"
       >
         <div v-if="!isCollapsed(col.status)" class="p-5 pt-0">
-          <div v-if="(localTasksByStatus[col.status]?.length || 0) === 0" class="text-center py-8 text-xs font-medium text-gray-400 dark:text-gray-500 italic bg-gray-50/50 dark:bg-surface-dark/30 rounded-xl border border-dashed border-gray-200 dark:border-surface-border/50">
+          <div v-if="(localTasksByStatus[col.status]?.length || 0) === 0" class="text-center py-8 text-sm font-medium text-gray-400 dark:text-gray-500 italic bg-gray-50/50 dark:bg-surface-dark/30 rounded-xl border border-dashed border-gray-200 dark:border-surface-border/50">
             No tasks in this category
           </div>
           <div

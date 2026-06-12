@@ -51,7 +51,7 @@ const configSnippet = computed(() => {
           </div>
           <div>
             <h3 class="text-xl font-black text-gray-900 dark:text-white">MCP Server Guide</h3>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Board ID: {{ boardId }}</p>
+            <p class="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Board ID: {{ boardId }}</p>
           </div>
         </div>
         <button @click="emit('close')" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-surface-hover text-gray-400 hover:text-gray-600 dark:hover:text-white transition-all text-2xl">&times;</button>
@@ -62,7 +62,7 @@ const configSnippet = computed(() => {
         <section>
           <div class="flex items-center gap-2 mb-3">
             <div class="w-1 h-4 bg-neon-cyan rounded-full"></div>
-            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">What is this?</h4>
+            <h4 class="text-sm font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">What is this?</h4>
           </div>
           <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
             Moo Tasks is an <strong class="text-gray-900 dark:text-white">MCP Server</strong> (Model Context Protocol). It allows AI agents like Claude, Cursor, and VS Code to interact directly with this board to manage tasks, read instructions, and follow workflows.
@@ -73,14 +73,14 @@ const configSnippet = computed(() => {
         <section class="space-y-4">
           <div class="flex items-center gap-2 mb-3">
             <div class="w-1 h-4 bg-neon-cyan rounded-full"></div>
-            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Project Integration</h4>
+            <h4 class="text-sm font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Project Integration</h4>
           </div>
           <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
             Copy <code class="font-mono bg-gray-100 dark:bg-surface-raised px-1 py-0.5 rounded">AGENTS.md</code> to your project root to enable task discovery and MCP integration.
           </p>
           <button
             @click="emit('open-agents')"
-            class="text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all shadow-sm bg-neon-purple/10 text-neon-purple border border-neon-purple/20 hover:bg-neon-purple/20"
+            class="text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all shadow-sm bg-neon-purple/10 text-neon-purple border border-neon-purple/20 hover:bg-neon-purple/20"
           >
             📄 View AGENTS.md
           </button>
@@ -91,7 +91,7 @@ const configSnippet = computed(() => {
           <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
             <span class="text-4xl">🎯</span>
           </div>
-          <h4 class="text-xs font-black uppercase tracking-[0.2em] text-cyan-600 dark:text-neon-cyan mb-2">Board-Scoped API</h4>
+          <h4 class="text-sm font-black uppercase tracking-[0.2em] text-cyan-600 dark:text-neon-cyan mb-2">Board-Scoped API</h4>
           <p class="text-[13px] text-cyan-900 dark:text-cyan-100/80 leading-relaxed relative z-10">
             Everything is scoped to <strong class="dark:text-white">this specific board</strong>. There are no global queries. When you connect an agent, it will only see and manage tasks for this project, ensuring focus and security.
           </p>
@@ -101,7 +101,7 @@ const configSnippet = computed(() => {
         <section class="space-y-4">
           <div class="flex items-center gap-2 mb-3">
             <div class="w-1 h-4 bg-neon-cyan rounded-full"></div>
-            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Connection Details</h4>
+            <h4 class="text-sm font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Connection Details</h4>
           </div>
 
           <div class="space-y-2">
@@ -110,7 +110,7 @@ const configSnippet = computed(() => {
               <code class="flex-1 text-[11px] font-mono text-gray-700 dark:text-neon-cyan/90 truncate">{{ mcpUrl }}</code>
               <button
                 @click="copyToClipboard(mcpUrl)"
-                class="px-3 py-1.5 bg-white dark:bg-surface-raised border border-gray-200 dark:border-surface-border rounded-lg text-[10px] font-bold uppercase tracking-widest hover:border-neon-cyan/50 transition-all active:scale-95"
+                class="px-3 py-1.5 bg-white dark:bg-surface-raised border border-gray-200 dark:border-surface-border rounded-lg text-sm font-bold uppercase tracking-widest hover:border-neon-cyan/50 transition-all active:scale-95"
               >
                 {{ copied ? '✅ Copied' : '📋 Copy' }}
               </button>
@@ -126,7 +126,7 @@ const configSnippet = computed(() => {
         <section class="space-y-4">
           <div class="flex items-center gap-2 mb-3">
             <div class="w-1 h-4 bg-neon-cyan rounded-full"></div>
-            <h4 class="text-xs font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Client Configuration</h4>
+            <h4 class="text-sm font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Client Configuration</h4>
           </div>
 
           <div class="grid grid-cols-1 gap-6">
@@ -146,7 +146,7 @@ const configSnippet = computed(() => {
         </section>
 
         <div class="pt-6 border-t border-gray-100 dark:border-surface-border flex justify-end">
-          <button @click="emit('close')" class="px-8 py-3.5 text-xs font-black uppercase tracking-[0.2em] bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl hover:scale-[1.02] transition-all active:scale-95 shadow-xl shadow-gray-950/10 dark:shadow-white/5">
+          <button @click="emit('close')" class="px-8 py-3.5 text-sm font-black uppercase tracking-[0.2em] bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl hover:scale-[1.02] transition-all active:scale-95 shadow-xl shadow-gray-950/10 dark:shadow-white/5">
             Dismiss
           </button>
         </div>

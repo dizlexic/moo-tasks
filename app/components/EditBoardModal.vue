@@ -58,11 +58,11 @@ async function onSave() {
       <div v-if="error" class="text-red-500 text-xs font-semibold mb-4">{{ error }}</div>
 
       <div class="flex justify-end gap-3">
-        <button @click="emit('close')" class="px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">Cancel</button>
+        <button @click="emit('close')" class="px-4 py-2 text-sm font-bold uppercase tracking-widest text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">Cancel</button>
         <button
           @click="onSave"
           :disabled="saving"
-          class="px-4 py-2 text-xs font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 rounded-xl hover:bg-neon-cyan/90 disabled:opacity-50 transition-all shadow-md shadow-neon-cyan/20"
+          class="px-4 py-2 text-sm font-bold uppercase tracking-widest bg-neon-cyan text-cyan-950 rounded-xl hover:bg-neon-cyan/90 disabled:opacity-50 transition-all shadow-md shadow-neon-cyan/20"
         >
           {{ saving ? 'Saving...' : 'Save Changes' }}
         </button>
