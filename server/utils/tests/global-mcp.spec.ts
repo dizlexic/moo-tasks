@@ -63,5 +63,39 @@ describe('global-mcp utils', () => {
       expect(parsedResult.board.name).toBe('New Board')
       expect(parsedResult.board.ownerId).toBe('user-1')
     })
+
+    it('should implement create-board with minimal fields (no description)', async () => {
+      const server = await createGlobalMcpServer('user-2')
+      const createBoardHandler = server._registeredTools['create-board'].handler
+      
+      ;(db.insert as any).mockReturnValue({
+        values: vi.fn().mockResolvedValue({}),
+      })
+
+      const result = await createBoardHandler({ name: 'Minimal Board' })
+      const parsed = JSON.parse(result.content[0].text)
+      expect(parsed.board.name).toBe('Minimal Board')
+      expect(parsed.board.description).toBeNull()
+    })
+
+    it('get-installation-instructions always returns setup content (core logic + edge: no userId path)', async () => {
+      const serverNoUser = await createGlobalMcpServer()
+      const serverWithUser = await createGlobalMcpServer('user-3')
+
+      const noUserInstr = serverNoUser._registeredTools['get-installation-instructions'].handler
+      const withUserInstr = serverWithUser._registeredTools['get-installation-instructions'].handler
+
+      const r1 = await noUserInstr({})
+      const r2 = await withUserInstr({})
+
+      const text1 = r1.content[0].text
+      const text2 = r2.content[0].text
+
+      expect(text1).toContain('Moo Tasks Installation')
+      expect(text1).toContain('docker-compose')
+      expect(text1).toContain('Connecting an Agent')
+      expect(text2).toContain('Cloud Version (mootasks.dev)')
+      // create-board presence is tested separately
+    })
   })
 })

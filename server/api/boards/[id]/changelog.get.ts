@@ -1,5 +1,5 @@
 import { getRouterParam, getQuery } from 'h3'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, gte } from 'drizzle-orm'
 import { db } from '../../../db'
 import { tasks, boardMembers } from '../../../db/schema'
 
@@ -15,10 +15,20 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event)
   const template = (query.template as string) || 'simple'
+  const limit = query.limit ? Math.min(parseInt(query.limit as string, 10) || 100, 1000) : undefined
+  const since = query.since as string | undefined
 
-  const doneTasks = await db.select().from(tasks)
-    .where(and(eq(tasks.boardId, boardId), eq(tasks.status, 'done')))
+  const conditions = [eq(tasks.boardId, boardId), eq(tasks.status, 'done')]
+  if (since) {
+    const d = new Date(since)
+    if (!isNaN(d.getTime())) conditions.push(gte(tasks.updatedAt, d))
+  }
+
+  let q = db.select().from(tasks)
+    .where(and(...conditions))
     .orderBy(desc(tasks.updatedAt))
+  if (limit) q = q.limit(limit)
+  const doneTasks = await q
 
   if (doneTasks.length === 0) {
     return { changelog: 'No tasks completed yet.' }
@@ -65,5 +75,5 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return { changelog }
+  return { changelog, count: doneTasks.length, ...(since || limit ? { partial: true } : {}) }
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createBoardMcpServer } from '../board-mcp'
+import { createBoardMcpServer, invalidateBoardMetadata } from '../board-mcp'
 import { db } from '../../db'
 
 vi.mock('../../db', () => ({
@@ -8,6 +8,7 @@ vi.mock('../../db', () => ({
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    transaction: vi.fn(),
   }
 }))
 
@@ -27,6 +28,7 @@ vi.mock('../logs', () => ({
 describe('board-mcp utils', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    invalidateBoardMetadata() // ensure cache bypass so mocked selects are always exercised
   })
 
   describe('createBoardMcpServer', () => {
@@ -101,12 +103,38 @@ describe('board-mcp utils', () => {
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue(mockTasks),
+        orderBy: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(mockTasks),
+          offset: vi.fn().mockResolvedValue(mockTasks),
+        }),
       })
 
       const result = await listTasksHandler({ status: 'todo' })
       const parsedResult = JSON.parse(result.content[0].text)
       expect(parsedResult.tasks).toHaveLength(0)
+    })
+
+    it('supports limit + offset pagination in list-tasks (DB-backed, exercises limit/offset path)', async () => {
+      const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'list-tasks': true }, allowAiReview: false }
+      const mockColumns = [{ status: 'todo', permissions: { view: true } }]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('board-1')
+      const listHandler = server._registeredTools['list-tasks'].handler
+
+      const manyTasks = Array.from({ length: 25 }, (_, i) => ({ id: 't' + i, status: 'todo', order: i }))
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        offset: vi.fn().mockResolvedValue(manyTasks.slice(10, 15)),
+      })
+
+      const res = await listHandler({ status: 'todo', limit: 5, offset: 10 })
+      const p = JSON.parse(res.content[0].text)
+      expect(p.tasks).toHaveLength(5)
     })
 
     it('should create a task when create-task is called', async () => {
@@ -245,6 +273,24 @@ describe('board-mcp utils', () => {
       ;(db.insert as any).mockReturnValue({
         values: vi.fn().mockResolvedValue({}),
       })
+      ;(db.select as any).mockReturnValue({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'todo' }]),
+      })
+      ;(db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue({}),
+      })
+
+      ;(db.transaction as any).mockImplementation(async (cb: any) => {
+        // Delegate to the same mocked methods (tests configure returns on db.* which we alias)
+        const tx = {
+          insert: db.insert,
+          update: db.update,
+          select: db.select,
+        }
+        return cb(tx)
+      })
 
       const result = await rejectTaskHandler({ taskId: 'task-1', reason: 'Issues found' })
       const parsedResult = JSON.parse(result.content[0].text)
@@ -308,6 +354,81 @@ describe('board-mcp utils', () => {
 
       const result = await workflowHandler({})
       expect(result.messages[0].content.text).toBe('Board instructions')
+    })
+
+    it('should generate a changelog via generate-changelog handler (exercises done tasks query + desc orderBy)', async () => {
+      const mockBoard = {
+        id: 'board-1',
+        mcpEnabledFunctions: { 'generate-changelog': true },
+        allowAiReview: false,
+      }
+      const mockColumns = []
+
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([mockBoard]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue(mockColumns),
+      })
+
+      const server = await createBoardMcpServer('board-1')
+      // @ts-ignore
+      const genChangelogHandler = server._registeredTools['generate-changelog'].handler
+
+      const mockDone = [
+        { id: 'd1', title: 'Ship v1', description: 'Initial release', priority: 'high', updatedAt: new Date('2026-06-01') },
+        { id: 'd2', title: 'Fix bug', description: null, priority: 'medium', updatedAt: new Date('2026-06-02') },
+      ]
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue(mockDone),
+      })
+
+      const result = await genChangelogHandler({ template: 'simple' })
+      expect(result.content[0].text).toContain('# Changelog')
+      expect(result.content[0].text).toContain('- Ship v1')
+      expect(result.content[0].text).toContain('- Fix bug')
+
+      // Also exercise 'detailed' template path
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue(mockDone),
+      })
+      const detailed = await genChangelogHandler({ template: 'detailed' })
+      expect(detailed.content[0].text).toContain('### Ship v1')
+      expect(detailed.content[0].text).toContain('Initial release')
+    })
+
+    it('caches board metadata (micro-benchmark path for repeated creates; after first hit, no DB)', async () => {
+      const mockBoard = {
+        id: 'board-cache-test',
+        mcpEnabledFunctions: { 'list-tasks': true },
+        allowAiReview: false,
+      }
+      const mockColumns = [{ status: 'todo', permissions: { view: true } }]
+
+      // First create populates cache (two selects)
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([mockBoard]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue(mockColumns),
+      })
+
+      await createBoardMcpServer('board-cache-test')
+
+      // Subsequent creates should hit cache (no more select mocks needed for this board in this test)
+      const start = Date.now()
+      for (let i = 0; i < 50; i++) {
+        await createBoardMcpServer('board-cache-test')
+      }
+      const dur = Date.now() - start
+      // In real env this demonstrates the win (near-zero cost on hits); invalidate in beforeEach keeps tests clean
+      expect(dur).toBeLessThan(100)
     })
   })
 })

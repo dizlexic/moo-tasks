@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '#server/db';
 import { boardColumns } from '#server/db/schema';
+import { invalidateBoardMetadata } from '../../../utils/board-mcp';
 
 export default defineEventHandler(async (event) => {
   const boardId = event.context.params!.id;
@@ -17,5 +18,6 @@ export default defineEventHandler(async (event) => {
     .set(updateData)
     .where(and(eq(boardColumns.id, columnId), eq(boardColumns.boardId, boardId)));
 
+  invalidateBoardMetadata(boardId);
   return updatedColumn;
 });

@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { eq, and, or, like, isNull, inArray, asc } from 'drizzle-orm'
+import { eq, and, or, like, isNull, inArray, asc, desc, gte } from 'drizzle-orm'
 import { db } from '../db'
 import { tasks, comments, instructions, boards, boardColumns, users, boardMembers, tags, taskTags, plans, planTasks } from '../db/schema'
 import { generateId } from './id'
@@ -44,12 +44,41 @@ export const MCP_FUNCTIONS = [
 
 export type McpFunction = typeof MCP_FUNCTIONS[number]
 
+// Simple in-memory TTL cache for board metadata (board row + columns/permissions/mcp config).
+// Avoids repeated SELECTs on every stateless MCP request (createBoardMcpServer called per req).
+// TTL keeps it fresh-ish; invalidate on mutations for correctness.
+const metadataCache = new Map<string, { board: any; columns: any; expires: number }>()
+const CACHE_TTL_MS = 30_000 // 30 seconds; metadata (cols, enabled funcs) rarely changes
+
+export function invalidateBoardMetadata(boardId?: string) {
+  if (boardId) {
+    metadataCache.delete(boardId)
+  } else {
+    metadataCache.clear()
+  }
+}
+
 export async function createBoardMcpServer(boardId: string): Promise<McpServer> {
-  const board = (await db.select().from(boards).where(eq(boards.id, boardId)))[0]
-  if (!board) throw new Error('Board not found')
+  let board: any
+  let columns: any
+
+  const cached = metadataCache.get(boardId)
+  if (cached && cached.expires > Date.now()) {
+    board = cached.board
+    columns = cached.columns
+  } else {
+    board = (await db.select().from(boards).where(eq(boards.id, boardId)))[0]
+    if (!board) throw new Error('Board not found')
+    columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId))
+    metadataCache.set(boardId, {
+      board,
+      columns,
+      expires: Date.now() + CACHE_TTL_MS,
+    })
+  }
+
   const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
 
-  const columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId));
   const getPermissions = (status: string) => {
     const column = columns.find(c => c.status === status);
     return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true };
@@ -68,8 +97,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       status: z.enum(['todo', 'in_progress', 'review']).optional().describe('Filter by task status'),
       priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Filter by task priority'),
       limit: z.number().int().positive().optional().describe('Limit the number of tasks returned (default 10 for todo)'),
+      offset: z.number().int().nonnegative().optional().describe('Offset for pagination (0-based)'),
     },
-    async ({ status, priority, limit }) => {
+    async ({ status, priority, limit, offset }) => {
       if (enabledFunctions['list-tasks'] === false) throw new Error('Tool disabled')
 
       const getPermissions = (status: string) => {
@@ -77,7 +107,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
         return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true }
       }
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority, limit } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority, limit, offset } })
       
       const allowedStatuses = ['todo', 'in_progress'];
       if (board.allowAiReview) {
@@ -91,14 +121,15 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       if (status) conditions.push(eq(tasks.status, status))
       if (priority) conditions.push(eq(tasks.priority, priority))
 
-      const result = await db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
+      let q = db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
+      const effLimit = limit || (status === 'todo' && !offset ? 10 : undefined)
+      if (effLimit) q = q.limit(effLimit)
+      if (offset) q = q.offset(offset)
+      const result = await q
+
       let filteredTasks = result.filter(t => getPermissions(t.status).view !== false)
 
-      const effectiveLimit = limit || (status === 'todo' ? 10 : undefined)
-      if (effectiveLimit) {
-        filteredTasks = filteredTasks.slice(0, effectiveLimit)
-      }
-
+      // If limit was applied at DB but permissions filtered some, we may have fewer; clients can page with offset for full scan if needed.
       return { content: [{ type: 'text', text: JSON.stringify({ tasks: filteredTasks, count: filteredTasks.length }) }] }
     },
   )
@@ -244,14 +275,20 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
         createdAt: now,
         updatedAt: now,
       }
-      await db.insert(tasks).values(correctionTask)
+
+      // Use tx for the correction insert (atomic even if extended later)
+      await db.transaction(async (tx) => {
+        await tx.insert(tasks).values(correctionTask)
+      })
       await reorderTasks(boardId, 'todo', correctionTask.id, 0)
       emitTaskEvent(boardId, 'task:created', correctionTask)
 
-      // Move original task back to in_progress
-      await db.update(tasks).set({ status: 'in_progress', updatedAt: now }).where(eq(tasks.id, taskId))
-      const updatedOriginalResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
-      const updatedOriginal = updatedOriginalResults[0]
+      // Move original task back to in_progress (in tx for consistency with other mutators)
+      const updatedOriginal = await db.transaction(async (tx) => {
+        await tx.update(tasks).set({ status: 'in_progress', updatedAt: now }).where(eq(tasks.id, taskId))
+        const updatedOriginalResults = await tx.select().from(tasks).where(eq(tasks.id, taskId))
+        return updatedOriginalResults[0]
+      })
       if (updatedOriginal) emitTaskEvent(boardId, 'task:updated', updatedOriginal)
 
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Correction task created, original moved back to in_progress', correctionTask, originalTaskId: taskId }) }] }
@@ -279,45 +316,50 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
 
       const now = new Date()
 
-      // 1. Add comment
-      await db.insert(comments).values({
-        id: generateId(),
-        taskId,
-        boardId,
-        author: 'AI Reviewer',
-        content: `### Review Failed\n\n${reason}`,
-        createdAt: now,
+      // Wrap mutation sequence in a transaction for atomicity (comment + tag ensure + link + status change)
+      const txResult = await db.transaction(async (tx) => {
+        // 1. Add comment
+        await tx.insert(comments).values({
+          id: generateId(),
+          taskId,
+          boardId,
+          author: 'AI Reviewer',
+          content: `### Review Failed\n\n${reason}`,
+          createdAt: now,
+        })
+
+        // 2. Ensure "correction" tag exists
+        let tagResults = await tx.select().from(tags).where(and(eq(tags.boardId, boardId), eq(tags.name, 'correction')))
+        let tagId = tagResults[0]?.id
+        if (!tagId) {
+          tagId = generateId()
+          await tx.insert(tags).values({
+            id: tagId,
+            boardId,
+            name: 'correction',
+            color: '#ef4444',
+            icon: 'wrench'
+          })
+        }
+
+        // 3. Link tag to task
+        const taskTagResults = await tx.select().from(taskTags).where(and(eq(taskTags.taskId, taskId), eq(taskTags.tagId, tagId)))
+        if (taskTagResults.length === 0) {
+          await tx.insert(taskTags).values({ taskId, tagId })
+        }
+
+        // 4. Move task back to todo and clear assignee
+        await tx.update(tasks).set({
+          status: 'todo',
+          assignee: null,
+          updatedAt: now
+        }).where(eq(tasks.id, taskId))
+
+        const updatedResults = await tx.select().from(tasks).where(eq(tasks.id, taskId))
+        return updatedResults[0] || null
       })
 
-      // 2. Ensure "correction" tag exists
-      let tagResults = await db.select().from(tags).where(and(eq(tags.boardId, boardId), eq(tags.name, 'correction')))
-      let tagId = tagResults[0]?.id
-      if (!tagId) {
-        tagId = generateId()
-        await db.insert(tags).values({
-          id: tagId,
-          boardId,
-          name: 'correction',
-          color: '#ef4444',
-          icon: 'wrench'
-        })
-      }
-
-      // 3. Link tag to task
-      const taskTagResults = await db.select().from(taskTags).where(and(eq(taskTags.taskId, taskId), eq(taskTags.tagId, tagId)))
-      if (taskTagResults.length === 0) {
-        await db.insert(taskTags).values({ taskId, tagId })
-      }
-
-      // 4. Move task back to todo and clear assignee
-      await db.update(tasks).set({
-        status: 'todo',
-        assignee: null,
-        updatedAt: now
-      }).where(eq(tasks.id, taskId))
-
-      const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
-      const updated = updatedResults[0]
+      const updated = txResult
       if (updated) {
         emitTaskEvent(boardId, 'task:updated', updated)
         emitTaskEvent(boardId, 'comment:created', { taskId })
@@ -453,16 +495,27 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     'Get all comments for a task.',
     {
       taskId: z.string().describe('The unique task ID'),
+      limit: z.number().int().positive().optional().describe('Limit number of comments (most recent first)'),
+      offset: z.number().int().nonnegative().optional().describe('Offset for pagination'),
+      since: z.string().optional().describe('ISO date string; only return comments created at/after this time (for incremental)'),
     },
-    async ({ taskId }) => {
+    async ({ taskId, limit, offset, since }) => {
       if (enabledFunctions['get-comments'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'get-comments', data: { taskId } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'get-comments', data: { taskId, limit, offset, since } })
       const taskResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
       const task = taskResults[0]
       if (!task) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
 
-      const result = await db.select().from(comments).where(eq(comments.taskId, taskId))
+      const conditions: any[] = [eq(comments.taskId, taskId)]
+      if (since) {
+        const sinceDate = new Date(since)
+        if (!isNaN(sinceDate.getTime())) conditions.push(gte(comments.createdAt, sinceDate))
+      }
+      let q = db.select().from(comments).where(and(...conditions)).orderBy(desc(comments.createdAt))
+      if (limit) q = q.limit(limit)
+      if (offset) q = q.offset(offset)
+      const result = await q
       return { content: [{ type: 'text', text: JSON.stringify({ comments: result, count: result.length }) }] }
     },
   )
@@ -476,14 +529,22 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'resource:board-state', data: {} })
       const allTasks = await db.select().from(tasks).where(eq(tasks.boardId, boardId))
+      const SAMPLE = 50
       const grouped = {
-        backlog: allTasks.filter(t => t.status === 'backlog'),
-        todo: allTasks.filter(t => t.status === 'todo'),
-        in_progress: allTasks.filter(t => t.status === 'in_progress'),
-        review: allTasks.filter(t => t.status === 'review'),
-        done: allTasks.filter(t => t.status === 'done'),
+        backlog: allTasks.filter(t => t.status === 'backlog').slice(0, SAMPLE),
+        todo: allTasks.filter(t => t.status === 'todo').slice(0, SAMPLE),
+        in_progress: allTasks.filter(t => t.status === 'in_progress').slice(0, SAMPLE),
+        review: allTasks.filter(t => t.status === 'review').slice(0, SAMPLE),
+        done: allTasks.filter(t => t.status === 'done').slice(0, SAMPLE),
       }
-      return { contents: [{ uri: `moo-tasks://${boardId}/board-state`, mimeType: 'application/json', text: JSON.stringify({ totalTasks: allTasks.length, columns: grouped }) }] }
+      const counts = {
+        backlog: allTasks.filter(t => t.status === 'backlog').length,
+        todo: allTasks.filter(t => t.status === 'todo').length,
+        in_progress: allTasks.filter(t => t.status === 'in_progress').length,
+        review: allTasks.filter(t => t.status === 'review').length,
+        done: allTasks.filter(t => t.status === 'done').length,
+      }
+      return { contents: [{ uri: `moo-tasks://${boardId}/board-state`, mimeType: 'application/json', text: JSON.stringify({ totalTasks: allTasks.length, counts, columns: grouped, note: 'Per-column samples capped at 50; use list-tasks with limit/offset or status filter for full results.' }) }] }
     },
   )
 
@@ -517,14 +578,23 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     'Generate a markdown changelog based on completed (done) tasks on this board.',
     {
       template: z.enum(['simple', 'detailed', 'priority']).optional().default('simple').describe('Changelog formatting template'),
+      limit: z.number().int().positive().optional().describe('Max number of done tasks to include (default all, newest first)'),
+      since: z.string().optional().describe('ISO date; only include tasks updated at/after this (incremental changelog)'),
     },
-    async ({ template }) => {
+    async ({ template, limit, since }) => {
       if (enabledFunctions['generate-changelog'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'tool:generate-changelog', data: { template } })
-      const doneTasks = await db.select().from(tasks)
-        .where(and(eq(tasks.boardId, boardId), eq(tasks.status, 'done')))
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'tool:generate-changelog', data: { template, limit, since } })
+      const conditions = [eq(tasks.boardId, boardId), eq(tasks.status, 'done')]
+      if (since) {
+        const d = new Date(since)
+        if (!isNaN(d.getTime())) conditions.push(gte(tasks.updatedAt, d))
+      }
+      let q = db.select().from(tasks)
+        .where(and(...conditions))
         .orderBy(desc(tasks.updatedAt))
+      if (limit) q = q.limit(limit)
+      const doneTasks = await q
 
       if (doneTasks.length === 0) {
         return { content: [{ type: 'text', text: 'No tasks completed yet.' }] }
@@ -594,21 +664,25 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
         createdAt: now,
         updatedAt: now,
       }
-      await db.insert(boards).values(newBoard)
-      
-      // Also create default columns
-      const columns = ['backlog', 'todo', 'in_progress', 'review', 'done']
-      for (let i = 0; i < columns.length; i++) {
-          await db.insert(boardColumns).values({
-          id: generateId(),
-          boardId: newBoardId,
-          name: columns[i].charAt(0).toUpperCase() + columns[i].slice(1),
-          status: columns[i] as any,
-          order: i,
-          createdAt: now,
-          updatedAt: now,
-          })
-      }
+
+      // Wrap board + default columns creation in a tx for atomicity (no half-created boards)
+      await db.transaction(async (tx) => {
+        await tx.insert(boards).values(newBoard)
+        
+        // Also create default columns
+        const columns = ['backlog', 'todo', 'in_progress', 'review', 'done']
+        for (let i = 0; i < columns.length; i++) {
+            await tx.insert(boardColumns).values({
+            id: generateId(),
+            boardId: newBoardId,
+            name: columns[i].charAt(0).toUpperCase() + columns[i].slice(1),
+            status: columns[i] as any,
+            order: i,
+            createdAt: now,
+            updatedAt: now,
+            })
+        }
+      })
 
       void logBoardEvent({ boardId: newBoardId, type: 'user_action', actor: 'AI Agent', action: 'board:created', data: { name } })
       
@@ -708,24 +782,30 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
       const now = new Date()
       let nextBoardTaskId = await getNextBoardTaskId(boardId)
       
-      for (const pt of pTasks) {
-        const newTask = {
-          id: generateId(),
-          boardId,
-          title: pt.title,
-          description: pt.description || '',
-          status: 'todo' as const,
-          priority: pt.priority,
-          order: pt.order,
-          boardTaskId: nextBoardTaskId++,
-          difficulty: pt.difficulty,
-          isHumanOnly: pt.isHumanOnly,
-          createdAt: now,
-          updatedAt: now,
+      const createdTasks: any[] = []
+      // Wrap the batch inserts in a transaction for atomicity (all-or-nothing plan apply) and fewer roundtrips
+      await db.transaction(async (tx) => {
+        for (const pt of pTasks) {
+          const newTask = {
+            id: generateId(),
+            boardId,
+            title: pt.title,
+            description: pt.description || '',
+            status: 'todo' as const,
+            priority: pt.priority,
+            order: pt.order,
+            boardTaskId: nextBoardTaskId++,
+            difficulty: pt.difficulty,
+            isHumanOnly: pt.isHumanOnly,
+            createdAt: now,
+            updatedAt: now,
+          }
+          await tx.insert(tasks).values(newTask)
+          createdTasks.push(newTask)
         }
-        await db.insert(tasks).values(newTask)
-        emitTaskEvent(boardId, 'task:created', newTask)
-      }
+      })
+
+      createdTasks.forEach(newTask => emitTaskEvent(boardId, 'task:created', newTask))
 
       return { content: [{ type: 'text', text: JSON.stringify({ message: `Successfully applied plan "${planResult.name}"`, count: pTasks.length }) }] }
     }

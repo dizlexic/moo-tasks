@@ -3,6 +3,7 @@ import { eq, and } from 'drizzle-orm'
 import { db } from '../../db'
 import { boards, boardMembers } from '../../db/schema'
 import { logBoardEvent } from '../../utils/logs'
+import { invalidateBoardMetadata } from '../../utils/board-mcp'
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event)
@@ -32,6 +33,7 @@ export default defineEventHandler(async (event) => {
     action: 'board:updated',
     data: { updates: body }
   })
+  invalidateBoardMetadata(id)
   const results = await db.select().from(boards).where(eq(boards.id, id))
   return results[0]
 })

@@ -16,6 +16,8 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const status = query.status as string | undefined
   const q = query.q as string | undefined
+  const limit = query.limit ? Math.min(parseInt(query.limit as string, 10) || 100, 500) : undefined
+  const offset = query.offset ? parseInt(query.offset as string, 10) || 0 : undefined
 
   const conditions = [eq(tasks.boardId, boardId)]
   if (status) {
@@ -30,5 +32,8 @@ export default defineEventHandler(async (event) => {
     conditions.push(or(like(tasks.title, `%${q}%`), like(tasks.description, `%${q}%`))!)
   }
 
-  return await db.select().from(tasks).where(and(...conditions))
+  let qbuilder = db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
+  if (limit) qbuilder = qbuilder.limit(limit)
+  if (offset) qbuilder = qbuilder.offset(offset)
+  return await qbuilder
 })
