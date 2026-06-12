@@ -20,6 +20,14 @@
   --shadow-neon-cyan: 0 0 10px rgba(0, 240, 255, 0.3), 0 0 20px rgba(0, 240, 255, 0.1);
   --shadow-neon-purple: 0 0 10px rgba(168, 85, 247, 0.3), 0 0 20px rgba(168, 85, 247, 0.1);
   --shadow-neon-pink: 0 0 10px rgba(236, 72, 153, 0.3), 0 0 20px rgba(236, 72, 153, 0.1);
+
+  /* Typography scale for improved a11y & modernity (see task noJZCU-IUuFX) */
+  /* Base ~15px, labels at least 14px, content comfortable. Fluid where sensible. */
+  --font-size-2xs: 0.6875rem;   /* ~11px - rare micro use only */
+  --font-size-xs: 0.75rem;      /* 12px - smallest badges, de-emphasized meta */
+  --font-size-sm: 0.875rem;     /* 14px - minimum for labels, chrome, buttons, tags */
+  --font-size-base: 0.9375rem;  /* ~15px - primary content, descriptions, body text */
+  --font-size-label: clamp(0.8125rem, 0.8rem + 0.15vw, 0.9375rem);
 }
 
 /* Base styles */
@@ -129,7 +137,7 @@ html.transitioning *::after {
   background: var(--color-neon-cyan);
   color: #0a0b10;
   font-weight: 800;
-  font-size: 0.75rem;
+  font-size: 0.875rem; /* bumped for a11y (was 0.75rem) */
   text-transform: uppercase;
   letter-spacing: 0.1em;
   border-radius: 0 0 0.75rem 0.75rem;
@@ -342,7 +350,7 @@ html.transitioning *::after {
   padding: 4px 10px;
   background: var(--color-surface-card);
   color: #e5e7eb;
-  font-size: 10px;
+  font-size: 0.75rem; /* bumped from 10px for readability */
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
