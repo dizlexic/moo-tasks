@@ -18,9 +18,9 @@ async function onSave() {
 
   saving.value = true
   try {
-    const updatedBoard = await $fetch(`/api/boards/${props.boardId}`, { 
-        method: 'PATCH', 
-        body: { name: name.value, description: description.value, showTimeline: showTimeline.value, allowAiReview: allowAiReview.value, allowAccountToken: allowAccountToken.value } 
+    const updatedBoard = await $fetch(`/api/boards/${props.boardId}`, {
+        method: 'PATCH',
+        body: { name: name.value, description: description.value, showTimeline: showTimeline.value, allowAiReview: allowAiReview.value, allowAccountToken: allowAccountToken.value }
     })
     emit('updated', updatedBoard)
     emit('close')
@@ -36,7 +36,7 @@ async function onSave() {
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @mousedown.self="emit('close')">
     <div class="bg-white dark:bg-surface-card rounded-2xl p-6 shadow-xl w-full max-w-md border border-gray-200 dark:border-surface-border">
       <h3 class="text-lg font-black text-gray-900 dark:text-white mb-4">Edit Board</h3>
-      
+
       <input v-model="name" type="text" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm mb-4 focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none" placeholder="Board name" />
       <textarea v-model="description" class="w-full border border-gray-200 dark:border-surface-border dark:bg-surface-raised dark:text-white rounded-xl px-4 py-3 text-sm mb-4 focus:ring-2 focus:ring-neon-cyan/30 focus:border-neon-cyan/50 outline-none" placeholder="Description (optional)" rows="3"></textarea>
 
@@ -44,7 +44,7 @@ async function onSave() {
         <input v-model="showTimeline" type="checkbox" class="accent-neon-cyan" />
         <span class="text-sm text-gray-700 dark:text-gray-300">Show Task Timeline</span>
       </label>
-      
+
       <label class="flex items-center gap-2 mb-2">
         <input v-model="allowAiReview" type="checkbox" class="accent-neon-cyan" />
         <span class="text-sm text-gray-700 dark:text-gray-300">Allow AI Review</span>

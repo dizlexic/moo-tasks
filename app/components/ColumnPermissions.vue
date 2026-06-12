@@ -7,7 +7,7 @@ const { columns, fetchColumns } = useColumns(props.boardId)
 async function updatePermission(column: any, permission: string, value: boolean) {
   const permissions = column.permissions || { view: true, add: true, move: true, delete: true }
   permissions[permission] = value
-  
+
   await $fetch(`/api/boards/${props.boardId}/columns/${column.id}`, {
     method: 'PATCH',
     body: { permissions }
@@ -27,8 +27,8 @@ onMounted(fetchColumns)
         <div class="space-y-1">
           <div v-for="perm in ['view', 'add', 'move', 'delete']" :key="perm" class="flex items-center justify-between">
             <span class="text-xs text-gray-600 dark:text-gray-400 capitalize">{{ perm }}</span>
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               :checked="(column.permissions || { view: true, add: true, move: true, delete: true })[perm]"
               @change="updatePermission(column, perm, ($event.target as HTMLInputElement).checked)"
               class="rounded border-gray-300 text-neon-cyan focus:ring-neon-cyan"

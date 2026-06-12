@@ -3,8 +3,8 @@ import draggable from 'vuedraggable'
 import type { Task, Tag } from '../../server/db/schema'
 import { COLUMNS, COLUMN_COLORS } from '../utils/task-constants'
 
-const props = defineProps<{ 
-  boardId: string, 
+const props = defineProps<{
+  boardId: string,
   showArchive: boolean,
   searchQuery?: string,
   selectedTags?: Tag[]
@@ -54,7 +54,7 @@ const columns = computed(() => {
   return props.showArchive ? [...COLUMNS, { title: 'Archive', status: 'archive' }] : COLUMNS
 })
 
-const emit = defineEmits<{ 
+const emit = defineEmits<{
   taskClick: [task: Task],
   openMassAction: [taskIds: string[]],
   generateChangelog: []
@@ -244,18 +244,18 @@ async function onArchiveAll() {
                   :key="task.id"
                   class="flex items-center gap-3"
                 >
-                  <input 
+                  <input
                     v-if="isSelectMode[col.status]"
-                    type="checkbox" 
+                    type="checkbox"
                     :checked="selectedTaskIds[col.status]?.has(task.id)"
                     @change="toggleTaskSelection(col.status, task.id)"
                     class="rounded border-gray-300 text-neon-cyan focus:ring-neon-cyan"
                   />
-                  <TaskCard 
+                  <TaskCard
                     class="flex-1"
-                    :task="task" 
-                    :tags="tags" 
-                    :task-tags="taskTags" 
+                    :task="task"
+                    :tags="tags"
+                    :task-tags="taskTags"
                     @click="emit('taskClick', task)"
                     @contextmenu="onContextMenu($event, task)"
                   />
