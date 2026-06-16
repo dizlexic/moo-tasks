@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '#server/db';
 import { boardColumns } from '#server/db/schema';
-import { invalidateBoardMetadata } from '../../../utils/board-mcp';
+import { invalidateBoardMetadata } from '#server/utils/board-mcp';
 
 export default defineEventHandler(async (event) => {
   const boardId = event.context.params!.id;
