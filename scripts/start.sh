@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+npm run build
+
 echo "Checking database connection..."
 # Wait for database port to be open
 node -e "
