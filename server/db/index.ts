@@ -54,6 +54,12 @@ function getPoolConfig(): mysql.PoolOptions {
   }
 }
 
-const poolConnection = mysql.createPool(getPoolConfig())
+let dbConnection: mysql.Connection | mysql.Pool;
 
-export const db = drizzle(poolConnection, { schema, mode: 'default' })
+if (process.env.DATABASE_URL) {
+  dbConnection = await mysql.createConnection(process.env.DATABASE_URL);
+} else {
+  dbConnection = mysql.createPool(getPoolConfig());
+}
+
+export const db = drizzle(dbConnection, { schema, mode: 'default' })
