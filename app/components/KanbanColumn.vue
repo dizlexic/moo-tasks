@@ -28,6 +28,9 @@ watch(() => props.tasks, (newTasks) => {
 const isDragOver = ref(false)
 const isSelectMode = ref(false)
 const selectedTaskIds = ref(new Set<string>())
+const showMenu = ref(false)
+const menuRef = ref<HTMLElement | null>(null)
+const announcement = ref('')
 
 function toggleSelectMode() {
   isSelectMode.value = !isSelectMode.value
@@ -40,6 +43,22 @@ function toggleTaskSelection(taskId: string) {
   } else {
     selectedTaskIds.value.add(taskId)
   }
+}
+
+function toggleSelectMode() {
+  isSelectMode.value = !isSelectMode.value
+  selectedTaskIds.value.clear()
+}
+onMounted(() => {
+  document.addEventListener('click', closeMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenu)
+})
+
+function closeMenu() {
+  showMenu.value = false
 }
 
 const isAllSelected = computed(() => {
@@ -91,38 +110,54 @@ defineExpose({ resetSelection })
         <button
           v-if="tasks.length > 0"
           @click="toggleSelectMode"
-          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+          :title="isSelectMode ? 'Cancel' : 'Select'"
+          class="text-xs font-bold px-1.5 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
         >
-          {{ isSelectMode ? 'Cancel' : 'Select' }}
+          <AppIcon :name="isSelectMode ? 'x' : 'select'" :title="isSelectMode ? 'Cancel' : 'Select'" />
         </button>
         <button
           v-if="isSelectMode && tasks.length > 0"
           @click="toggleSelectAll"
-          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+          :title="isAllSelected ? 'Deselect All' : 'Select All'"
+          class="text-xs font-bold px-1.5 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
         >
-          {{ isAllSelected ? 'Deselect All' : 'Select All' }}
+          <AppIcon :name="isAllSelected ? 'minus' : 'plus'" :title="isAllSelected ? 'Deselect All' : 'Select All'" />
         </button>
-        <button
-          v-if="status === 'done' && tasks.length > 1"
-          @click="emit('archiveAll')"
-          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
-        >
-          Archive All
-        </button>
-        <button
-          v-if="status === 'done' && tasks.length > 0"
-          @click="emit('generateChangelog')"
-          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
-        >
-          Changelog
-        </button>
+        <div v-if="status === 'done' && tasks.length > 0" class="relative">
+          <button
+            @click.stop="showMenu = !showMenu"
+            class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+          >
+            ...
+          </button>
+          <div
+            v-if="showMenu"
+            class="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-lg shadow-xl z-20"
+            @click.stop
+          >
+            <button
+              v-if="tasks.length > 1"
+              @click="emit('archiveAll'); showMenu = false"
+              class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-surface-hover"
+            >
+              Archive All
+            </button>
+            <button
+              @click="emit('generateChangelog'); showMenu = false"
+              class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-surface-hover"
+            >
+              Changelog
+            </button>
+          </div>
+        </div>
       </div>
       <div v-if="isSelectMode && selectedTaskIds.size > 0" class="flex gap-2">
         <button
-          class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-neon-cyan bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
+          class="flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full border border-neon-cyan bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
           @click="$emit('openMassAction', Array.from(selectedTaskIds))"
+          title="Update selected tasks"
         >
-          Update ({{ selectedTaskIds.size }})
+          <AppIcon name="update" title="Update selected tasks" /> ({{ selectedTaskIds.size }})
         </button>
       </div>
       <span
@@ -147,15 +182,16 @@ defineExpose({ resetSelection })
       @dragenter="isDragOver = true"
       @dragleave="isDragOver = false"
     >
-      <template #item="{ element }">
-        <div :data-id="element.id" class="flex items-center gap-2">
-          <input
+      <template #item="{ element, index }">
+        <div :data-id="element.id" class="flex items-center gap-2" tabindex="0" @keydown="handleTaskKeydown($event, element, index)">
+          <button
             v-if="isSelectMode"
-            type="checkbox"
-            :checked="selectedTaskIds.has(element.id)"
-            @change="toggleTaskSelection(element.id)"
-            class="rounded border-gray-300 text-neon-cyan focus:ring-neon-cyan"
-          />
+            @click="toggleTaskSelection(element.id)"
+            class="w-6 h-6 flex items-center justify-center rounded border transition-colors"
+            :class="selectedTaskIds.has(element.id) ? 'bg-neon-cyan border-neon-cyan' : 'border-gray-300 bg-white'"
+          >
+            <span v-if="selectedTaskIds.has(element.id)" class="text-white">✓</span>
+          </button>
           <TaskCard
             :class="{'flex-1': isSelectMode}"
             :task="element"

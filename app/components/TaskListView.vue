@@ -69,6 +69,15 @@ const collapsed = ref<Record<string, boolean>>({})
 const isSelectMode = ref<Record<string, boolean>>({})
 const selectedTaskIds = ref<Record<string, Set<string>>>({})
 const localTasksByStatus = ref<Record<string, Task[]>>({})
+const announcement = ref('')
+
+function announce(message: string) {
+  announcement.value = message
+  setTimeout(() => {
+    announcement.value = ''
+  }, 3000)
+}
+
 
 watch([filteredTasks, () => columns.value], () => {
   columns.value.forEach(col => {
@@ -112,12 +121,12 @@ function toggleTaskSelection(status: string, taskId: string) {
 }
 
 function isAllSelected(status: string) {
-  const tasks = getTasksByStatus(status)
+  const tasks = localTasksByStatus.value[status] || []
   return tasks.length > 0 && (selectedTaskIds.value[status]?.size === tasks.length)
 }
 
 function toggleSelectAll(status: string) {
-  const tasks = getTasksByStatus(status)
+  const tasks = localTasksByStatus.value[status] || []
   if (isAllSelected(status)) {
     selectedTaskIds.value[status]?.clear()
   } else {
@@ -173,35 +182,40 @@ async function onArchiveAll() {
             <button
               v-if="(localTasksByStatus[col.status]?.length || 0) > 0"
               @click="toggleSelectMode(col.status)"
-              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+              :title="isSelectMode[col.status] ? 'Cancel' : 'Select'"
+              class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
             >
-              {{ isSelectMode[col.status] ? 'Cancel' : 'Select' }}
+              <AppIcon :name="isSelectMode[col.status] ? 'x' : 'select'" :title="isSelectMode[col.status] ? 'Cancel' : 'Select'" />
             </button>
             <button
               v-if="isSelectMode[col.status] && (localTasksByStatus[col.status]?.length || 0) > 0"
               @click="toggleSelectAll(col.status)"
-              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+              :title="isAllSelected(col.status) ? 'Deselect All' : 'Select All'"
+              class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
             >
-              {{ isAllSelected(col.status) ? 'Deselect All' : 'Select All' }}
+              <AppIcon :name="isAllSelected(col.status) ? 'minus' : 'plus'" :title="isAllSelected(col.status) ? 'Deselect All' : 'Select All'" />
             </button>
             <button
               v-if="isSelectMode[col.status] && selectedTaskIds[col.status]?.size > 0"
               @click="emit('openMassAction', Array.from(selectedTaskIds[col.status]))"
-              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-neon-cyan bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
+              title="Update selected tasks"
+              class="flex items-center gap-1 text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-neon-cyan bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/20 transition-all"
             >
-              Update ({{ selectedTaskIds[col.status]?.size }})
+              <AppIcon name="update" title="Update selected tasks" /> ({{ selectedTaskIds[col.status]?.size }})
             </button>
             <button
               v-if="col.status === 'done' && (localTasksByStatus['done']?.length || 0) > 1 && !isSelectMode[col.status]"
               @click="onArchiveAll"
-              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+              title="Archive All"
+              class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
             >
               Archive All
             </button>
             <button
               v-if="col.status === 'done' && (localTasksByStatus['done']?.length || 0) > 0"
               @click="emit('generateChangelog')"
-              class="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
+              title="Changelog"
+              class="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-gray-200 dark:border-surface-border bg-white dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all"
             >
               Changelog
             </button>
@@ -249,13 +263,14 @@ async function onArchiveAll() {
                   :key="task.id"
                   class="flex items-center gap-3"
                 >
-                  <input
+                  <button
                     v-if="isSelectMode[col.status]"
-                    type="checkbox"
-                    :checked="selectedTaskIds[col.status]?.has(task.id)"
-                    @change="toggleTaskSelection(col.status, task.id)"
-                    class="rounded border-gray-300 text-neon-cyan focus:ring-neon-cyan"
-                  />
+                    @click="toggleTaskSelection(col.status, task.id)"
+                    class="w-6 h-6 flex items-center justify-center rounded border transition-colors"
+                    :class="selectedTaskIds[col.status]?.has(task.id) ? 'bg-neon-cyan border-neon-cyan' : 'border-gray-300 bg-white'"
+                  >
+                    <span v-if="selectedTaskIds[col.status]?.has(task.id)" class="text-white">✓</span>
+                  </button>
                   <TaskCard
                     class="flex-1"
                     :task="task"

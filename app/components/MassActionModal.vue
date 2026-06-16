@@ -2,7 +2,7 @@
 const emit = defineEmits<{ close: []; confirm: [status: string] }>()
 
 const selectedStatus = ref('todo')
-const statuses = ['backlog', 'todo', 'in_progress', 'review', 'done', 'archive']
+const statuses = ['backlog', 'todo', 'in_progress', 'review', 'done', 'archive', 'delete']
 </script>
 
 <template>

@@ -80,21 +80,44 @@ watch(() => board.value, (newBoard) => {
 const viewMode = ref<'board' | 'list'>('board')
 const showArchive = ref(false)
 
-const showMassActionModal = ref(false)
+const showTaskSelectionModal = ref(false)
 const tasksToUpdate = ref<string[]>([])
 
-function openMassAction(taskIds: string[]) {
+function openTaskSelection(taskIds: string[]) {
   tasksToUpdate.value = taskIds
-  showMassActionModal.value = true
+  showTaskSelectionModal.value = true
 }
 
-async function performMassUpdate(status: string) {
+async function performTaskAction(action: string, payload: any) {
   try {
-    await $fetch('/api/tasks', {
-      method: 'POST',
-      body: { taskIds: tasksToUpdate.value, status }
-    })
-    showMassActionModal.value = false
+    if (action === 'status') {
+        const status = payload
+        if (status === 'delete') {
+            await Promise.all(tasksToUpdate.value.map(id => $fetch(`/api/tasks/${id}`, { method: 'DELETE' })))
+        } else {
+            await $fetch('/api/tasks', {
+                method: 'POST',
+                body: { taskIds: tasksToUpdate.value, status }
+            })
+        }
+    } else if (action === 'create-plan') {
+        const planName = payload
+        const plan = await $fetch('/api/plans', {
+            method: 'POST',
+            body: { name: planName, boardId }
+        })
+        await $fetch(`/api/plans/${(plan as any).id}/tasks`, {
+            method: 'POST',
+            body: { taskIds: tasksToUpdate.value }
+        })
+    } else if (action === 'add-to-plan') {
+        const planId = payload
+        await $fetch(`/api/plans/${planId}/tasks`, {
+            method: 'POST',
+            body: { taskIds: tasksToUpdate.value }
+        })
+    }
+    showTaskSelectionModal.value = false
     tasksToUpdate.value = []
     kanbanBoardRef.value?.resetAllSelections()
     await fetchTasks()
@@ -660,7 +683,7 @@ onUnmounted(() => stopSocket())
                    :search-query="searchQuery"
                    :tags="tags"
                    @task-click="selectedTask = $event"
-                   @open-mass-action="openMassAction"
+                   @open-mass-action="openTaskSelection"
                    @generate-changelog="showChangelog = true"
       />
       <TaskListView v-else
@@ -669,7 +692,7 @@ onUnmounted(() => stopSocket())
                     :show-archive="showArchive"
                     :search-query="searchQuery"
                     @task-click="selectedTask = $event"
-                    @open-mass-action="openMassAction"
+                    @open-mass-action="openTaskSelection"
                     @generate-changelog="showChangelog = true"
       />
     </div>
@@ -698,7 +721,7 @@ onUnmounted(() => stopSocket())
       leave-active-class="modal-leave-active"
       leave-to-class="modal-leave-to"
     >
-      <MassActionModal v-if="showMassActionModal" @close="showMassActionModal = false" @confirm="performMassUpdate" />
+      <TaskSelectionActionModal v-if="showTaskSelectionModal" :task-ids="tasksToUpdate" :board-id="boardId" @close="showTaskSelectionModal = false" @confirm="performTaskAction" />
     </transition>
 
     <ApplyPlanModal v-if="showApplyPlan" :board-id="boardId" @close="showApplyPlan = false" @applied="fetchTasks" />
