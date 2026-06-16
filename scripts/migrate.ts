@@ -5,6 +5,8 @@ import * as schema from '../server/db/schema';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { generateId } from '../server/utils/id';
+import { DEFAULT_AGENT_INSTRUCTIONS, DEFAULT_TASK_WORKFLOW } from '../server/db/defaults';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,6 +46,36 @@ async function main() {
   try {
     await migrate(db, { migrationsFolder });
     console.log('Migrations completed successfully!');
+    
+    console.log('Seeding default instructions...');
+    const existing = await db.select().from(schema.instructions);
+    if (existing.length === 0) {
+      const now = new Date();
+      await db.insert(schema.instructions).values([
+        {
+          id: generateId(),
+          boardId: null,
+          type: 'agent_instructions',
+          content: DEFAULT_AGENT_INSTRUCTIONS,
+          isDefault: true,
+          updatedAt: now,
+          updatedBy: null,
+        },
+        {
+          id: generateId(),
+          boardId: null,
+          type: 'task_workflow',
+          content: DEFAULT_TASK_WORKFLOW,
+          isDefault: true,
+          updatedAt: now,
+          updatedBy: null,
+        },
+      ]);
+      console.log('Default instructions seeded.');
+    } else {
+      console.log('Instructions already exist, skipping seed.');
+    }
+
     await connection.end();
     process.exit(0);
   } catch (error) {
