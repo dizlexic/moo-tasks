@@ -2,6 +2,7 @@
 import draggable from 'vuedraggable'
 import type { Task, Tag, TaskTag } from '../../server/db/schema'
 import { COLUMN_COLORS } from '../utils/task-constants'
+import { onMounted, onUnmounted } from 'vue'
 
 const props = defineProps<{
   title: string
@@ -32,9 +33,29 @@ const showMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 const announcement = ref('')
 
-function toggleSelectMode() {
-  isSelectMode.value = !isSelectMode.value
-  selectedTaskIds.value.clear()
+function announce(message: string) {
+  announcement.value = message
+  setTimeout(() => {
+    announcement.value = ''
+  }, 3000)
+}
+
+function handleTaskKeydown(event: KeyboardEvent, task: Task, index: number) {
+  if (event.key === 'ArrowUp' && index > 0) {
+    event.preventDefault()
+    const prevTask = localTasks.value[index - 1]
+    localTasks.value.splice(index, 1)
+    localTasks.value.splice(index - 1, 0, task)
+    emit('taskMoved', task.id, props.status, index - 1)
+    announce(`Task ${task.title} moved up to position ${index}`)
+  } else if (event.key === 'ArrowDown' && index < localTasks.value.length - 1) {
+    event.preventDefault()
+    const nextTask = localTasks.value[index + 1]
+    localTasks.value.splice(index, 1)
+    localTasks.value.splice(index + 1, 0, task)
+    emit('taskMoved', task.id, props.status, index + 1)
+    announce(`Task ${task.title} moved down to position ${index + 2}`)
+  }
 }
 
 function toggleTaskSelection(taskId: string) {
@@ -210,5 +231,9 @@ defineExpose({ resetSelection })
         </div>
       </template>
     </draggable>
+    <!-- Screen reader announcements -->
+    <div aria-live="polite" class="sr-only" role="status">
+        {{ announcement }}
+    </div>
   </div>
 </template>

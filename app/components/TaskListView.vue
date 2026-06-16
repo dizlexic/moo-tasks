@@ -78,6 +78,23 @@ function announce(message: string) {
   }, 3000)
 }
 
+function handleTaskKeydown(event: KeyboardEvent, task: Task, index: number, status: string) {
+  if (event.key === 'ArrowUp' && index > 0) {
+    event.preventDefault()
+    const prevTask = localTasksByStatus.value[status][index - 1]
+    localTasksByStatus.value[status].splice(index, 1)
+    localTasksByStatus.value[status].splice(index - 1, 0, task)
+    moveTask(task.id, status as any, index - 1)
+    announce(`Task ${task.title} moved up to position ${index}`)
+  } else if (event.key === 'ArrowDown' && index < localTasksByStatus.value[status].length - 1) {
+    event.preventDefault()
+    const nextTask = localTasksByStatus.value[status][index + 1]
+    localTasksByStatus.value[status].splice(index, 1)
+    localTasksByStatus.value[status].splice(index + 1, 0, task)
+    moveTask(task.id, status as any, index + 1)
+    announce(`Task ${task.title} moved down to position ${index + 2}`)
+  }
+}
 
 watch([filteredTasks, () => columns.value], () => {
   columns.value.forEach(col => {
