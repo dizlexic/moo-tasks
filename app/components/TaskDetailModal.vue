@@ -254,16 +254,8 @@ function openParentTask() {
 </script>
 
 <template>
-  <div
-    ref="modalRef"
-    class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-all duration-300"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="task-detail-title"
-    tabindex="-1"
-    @mousedown.self="handleClose"
-  >
-    <div class="modal-panel bg-white dark:bg-surface-card rounded-2xl shadow-2xl dark:shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-[90vw] max-h-[90vh] overflow-hidden border border-gray-200 dark:border-surface-border flex flex-col">
+  <BaseModal max-width="max-w-[90vw]" @close="handleClose">
+    <div class="flex flex-col h-full overflow-hidden">
       <!-- Header -->
       <TaskDetailHeader
         :task="task"
@@ -353,7 +345,7 @@ function openParentTask() {
         </div>
       </div>
     </div>
-  </div>
+  </BaseModal>
   <!-- Correction Exit Confirmation -->
   <div v-if="showCorrectionExitModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
     <div class="bg-white dark:bg-surface-card rounded-2xl p-6 shadow-2xl w-full max-w-sm border border-gray-200 dark:border-surface-border animate-in fade-in zoom-in duration-200">
