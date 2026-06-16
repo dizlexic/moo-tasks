@@ -5,17 +5,22 @@ const { user } = useUserSession()
 const currentPage = ref(1)
 const pageSize = 12
 
-const favoriteBoards = computed(() => boards.value.filter(b => b.isFavorite))
-const otherBoards = computed(() => boards.value.filter(b => !b.isFavorite))
+const favoriteBoards = computed(() => boards.value
+    .filter(b => b.isFavorite)
+    .sort((a, b) => new Date(b.favoritedAt || 0).getTime() - new Date(a.favoritedAt || 0).getTime())
+)
+const otherBoards = computed(() => boards.value
+    .filter(b => !b.isFavorite)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+)
 
 const paginatedBoards = computed(() => {
-  const allOtherBoards = [...favoriteBoards.value.slice(6), ...otherBoards.value]
+  const allOtherBoards = [...otherBoards.value]
   const start = (currentPage.value - 1) * pageSize
   return allOtherBoards.slice(start, start + pageSize)
 })
 const totalPages = computed(() => {
-  const allOtherBoards = [...favoriteBoards.value.slice(6), ...otherBoards.value]
-  return Math.ceil(allOtherBoards.length / pageSize)
+  return Math.ceil(otherBoards.value.length / pageSize)
 })
 
 const showCreate = ref(false)
@@ -219,7 +224,7 @@ function onDelete(board: any) {
             <h2 class="text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1 mb-6">Favorite Boards</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <NuxtLink
-                  v-for="board in favoriteBoards.slice(0, 6)"
+                  v-for="board in favoriteBoards"
                   :key="board.id"
                   :to="`/boards/${board.id}`"
                   class="group relative bg-white dark:bg-surface-card rounded-3xl shadow-sm dark:shadow-xl border border-gray-200 dark:border-surface-border p-8 hover:border-neon-cyan/40 dark:hover:border-neon-cyan/30 transition-all hover:-translate-y-1 hover:shadow-2xl dark:hover:shadow-neon-cyan/10 flex flex-col min-h-[220px]"
