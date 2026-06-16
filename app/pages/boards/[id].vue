@@ -247,14 +247,6 @@ onMounted(async () => {
   mcpFunctions.value = await $fetch<string[]>('/api/mcp-functions')
   await fetchTasks()
 
-  const taskId = route.query.taskId || route.query.taskid || route.query.task_id
-  if (taskId && typeof taskId === 'string') {
-    const task = tasks.value.find(t => t.id === taskId)
-    if (task) {
-      selectedTask.value = task
-    }
-  }
-
   startSocket()
 
   if (import.meta.client) {
@@ -264,6 +256,16 @@ onMounted(async () => {
     }
   }
 })
+
+watch([tasks, () => route.query], ([newTasks, newQuery]) => {
+  const taskId = newQuery.taskId || newQuery.taskid || newQuery.task_id
+  if (taskId && typeof taskId === 'string' && newTasks.length > 0 && selectedTask.value?.id !== taskId) {
+    const task = newTasks.find(t => t.id === taskId)
+    if (task) {
+      selectedTask.value = task
+    }
+  }
+}, { immediate: true, deep: true })
 
 watch(activeTab, async (newTab) => {
   if (newTab === 'logs') {

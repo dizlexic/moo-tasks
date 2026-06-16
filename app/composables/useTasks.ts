@@ -46,14 +46,16 @@ export function useTasks(boardId: string) {
     const task = await $fetch<Task>(`/api/boards/${boardId}/tasks`, { method: 'POST', body: data })
     // Optimistic update — socket event will reconcile
     const exists = tasks.value.some(t => t.id === task.id)
-    if (!exists) tasks.value.push(task)
+    if (!exists) tasks.value = [...tasks.value, task]
     return task
   }
 
   async function updateTask(id: string, data: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'assignee' | 'order' | 'difficulty' | 'isHumanOnly'>>) {
     const updated = await $fetch<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: data })
     const idx = tasks.value.findIndex(t => t.id === id)
-    if (idx !== -1) tasks.value[idx] = updated
+    if (idx !== -1) {
+      tasks.value = [...tasks.value.slice(0, idx), updated, ...tasks.value.slice(idx + 1)]
+    }
     return updated
   }
 
@@ -92,7 +94,11 @@ export function useTasks(boardId: string) {
     const idx = tasks.value.findIndex(t => t.id === id)
     if (idx !== -1) {
       const oldTask = tasks.value[idx]
-      tasks.value[idx] = { ...oldTask, status, order }
+      tasks.value = [
+        ...tasks.value.slice(0, idx),
+        { ...oldTask, status, order },
+        ...tasks.value.slice(idx + 1)
+      ]
     }
     return updateTask(id, { status, order })
   }
@@ -105,15 +111,15 @@ export function useTasks(boardId: string) {
 
     socket.on('task:created', (task: Task) => {
       const exists = tasks.value.some(t => t.id === task.id)
-      if (!exists) tasks.value.push(task)
+      if (!exists) tasks.value = [...tasks.value, task]
     })
 
     socket.on('task:updated', (task: Task) => {
       const idx = tasks.value.findIndex(t => t.id === task.id)
       if (idx !== -1) {
-        tasks.value[idx] = task
+        tasks.value = [...tasks.value.slice(0, idx), task, ...tasks.value.slice(idx + 1)]
       } else {
-        tasks.value.push(task)
+        tasks.value = [...tasks.value, task]
       }
     })
 
