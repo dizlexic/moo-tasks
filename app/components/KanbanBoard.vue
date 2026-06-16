@@ -30,7 +30,12 @@ const scrollLeft = ref(0)
 const filteredTasks = computed(() => {
   if (!props.searchQuery) return tasks.value
   const q = props.searchQuery.toLowerCase()
-  return tasks.value.filter(t => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
+  return tasks.value.filter(t => 
+    t.title.toLowerCase().includes(q) || 
+    t.description?.toLowerCase().includes(q) ||
+    t.id.toLowerCase().includes(q) ||
+    t.boardTaskId.toString().includes(q)
+  )
 })
 
 function getTasksByStatus(status: TaskStatus): Task[] {

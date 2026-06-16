@@ -23,7 +23,12 @@ const filteredTasks = computed(() => {
 
   if (props.searchQuery) {
     const q = props.searchQuery.toLowerCase()
-    result = result.filter(t => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
+    result = result.filter(t => 
+      t.title.toLowerCase().includes(q) || 
+      t.description?.toLowerCase().includes(q) ||
+      t.id.toLowerCase().includes(q) ||
+      t.boardTaskId.toString().includes(q)
+    )
   }
 
   if (props.selectedTags && props.selectedTags.length > 0) {
