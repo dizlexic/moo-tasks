@@ -9,6 +9,11 @@ export const iconMap: Record<string, string> = {
   clock: '⏰',
   flag: '🚩',
   rocket: '🚀',
+  x: '❌',
+  plus: '➕',
+  minus: '➖',
+  select: '🖱️',
+  update: '🔄',
 }
 
 export const getIcon = (iconName: string) => {
