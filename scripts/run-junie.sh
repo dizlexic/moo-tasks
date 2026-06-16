@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-PROMPT="work the task board."
+PROMPT="Continue working on the project task board."
 CONFIG_FILE="/tmp/junie_config.json"
 LOCK_FILE="/tmp/junie_lock"
 LIMIT=$1
@@ -18,7 +18,7 @@ EOF
 # Function to run junie
 run_junie() {
     echo "Starting Junie..."
-    
+
     # Run junie
     junie --config-location "$CONFIG_FILE" "$PROMPT"
 }
@@ -29,17 +29,17 @@ while true; do
         echo "Reached iteration limit $LIMIT. Exiting."
         exit 0
     fi
-    
+
     # Run junie with flock to ensure only one instance
     (
         flock -n 200 || { echo "Junie is already running"; exit 0; }
-        
+
         run_junie
-        
+
         echo "Junie finished. Restarting..."
     ) 200>"$LOCK_FILE"
-    
+
     COUNT=$((COUNT+1))
-    
+
     sleep 5
 done
