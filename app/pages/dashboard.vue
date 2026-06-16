@@ -3,7 +3,7 @@ const { boards, invitations, sentInvitations, loading, fetchBoards, fetchInvitat
 const { user } = useUserSession()
 
 const currentPage = ref(1)
-const pageSize = 10
+const pageSize = 12
 
 const favoriteBoards = computed(() => boards.value.filter(b => b.isFavorite))
 const otherBoards = computed(() => boards.value.filter(b => !b.isFavorite))
