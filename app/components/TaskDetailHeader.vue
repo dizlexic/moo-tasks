@@ -15,6 +15,10 @@ const emit = defineEmits<{
 
 const linkCopied = ref(false)
 
+async function copyToClipboard(text: string) {
+  await navigator.clipboard.writeText(text)
+}
+
 async function copyTaskLink() {
   const origin = window.location.origin
   const slug = slugify(props.task.title)
@@ -29,6 +33,10 @@ async function copyTaskLink() {
   <div class="p-6 pb-4 border-b border-gray-100 dark:border-surface-border/50 flex items-center justify-between shrink-0">
     <div class="flex items-center gap-4">
       <h2 id="task-detail-title" class="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Task Details</h2>
+      <div class="flex items-center gap-2 text-[12px] font-mono text-gray-400">
+        <span class="cursor-pointer hover:text-neon-cyan" @click="copyToClipboard(task.boardTaskId.toString())" title="Copy Board Task ID">#{{ task.boardTaskId }}</span>
+        <span class="cursor-pointer hover:text-neon-cyan" @click="copyToClipboard(task.id)" title="Copy Task ID">{{ task.id }}</span>
+      </div>
       <button
         type="button"
         @click="copyTaskLink"

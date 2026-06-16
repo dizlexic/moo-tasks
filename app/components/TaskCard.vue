@@ -5,6 +5,20 @@ import type { Task, Tag, TaskTag } from '../../server/db/schema'
 const props = defineProps<{ task: Task, tags: Tag[], taskTags: TaskTag[] }>()
 const emit = defineEmits<{ click: [task: Task]; contextmenu: [event: MouseEvent, task: Task] }>()
 
+async function copyToClipboard(event: MouseEvent, text: string) {
+  await navigator.clipboard.writeText(text)
+  copiedNotification.value = {
+    show: true,
+    x: event.clientX,
+    y: event.clientY
+  }
+  setTimeout(() => {
+    copiedNotification.value.show = false
+  }, 1000)
+}
+
+const copiedNotification = ref<{ show: boolean, x: number, y: number }>({ show: false, x: 0, y: 0 })
+
 const taskTagsList = computed(() => {
   return props.taskTags
     .filter(tt => tt.taskId === props.task.id)
@@ -47,6 +61,10 @@ const difficultyColors: Record<number, string> = {
     @keydown.enter="emit('click', task)"
     @contextmenu="emit('contextmenu', $event, task)"
   >
+    <div class="flex items-center gap-2 mb-1 text-[10px] font-mono text-gray-400">
+      <span class="cursor-pointer hover:text-neon-cyan" @click.stop="copyToClipboard($event, task.boardTaskId.toString())">#{{ task.boardTaskId }}</span>
+      <span class="cursor-pointer hover:text-neon-cyan" @click.stop="copyToClipboard($event, task.id)">{{ task.id }}</span>
+    </div>
     <div class="flex items-start justify-between gap-2 mb-1">
       <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-snug group-hover:text-black dark:group-hover:text-white transition-colors">{{ task.title }}</h4>
       <span
@@ -84,6 +102,13 @@ const difficultyColors: Record<number, string> = {
         </span>
       </div>
       <span v-if="(task as any).parentTaskId" class="text-xs font-bold px-1.5 py-0.5 rounded-md bg-neon-orange/10 text-orange-600 dark:text-neon-orange border border-neon-orange/20 uppercase tracking-tight">Correction</span>
+    </div>
+    <div
+      v-if="copiedNotification.show"
+      class="fixed text-xs font-bold text-neon-cyan bg-white dark:bg-surface-card p-1 rounded border border-neon-cyan shadow-lg z-50 pointer-events-none transition-opacity duration-500"
+      :style="{ left: `${copiedNotification.x + 10}px`, top: `${copiedNotification.y - 30}px` }"
+    >
+      Copied!
     </div>
   </div>
 </template>
