@@ -12,6 +12,16 @@ const userEmail = computed(() => user.value?.email)
 const board = ref<(Board & { role: string, transfer: any }) | null>(null)
 const { fetchTasks, tasksByStatus, moveTask, createTask, updateTask, deleteTask, startSocket, stopSocket, tasks } = useTasks(boardId)
 const { tags, fetchTags } = useTags(boardId)
+const { mcpToken, tokenLoading, generateToken, revokeToken, mcpConfig } = useBoardToken(boardId)
+const router = useRouter()
+
+watch(selectedTask, (newTask) => {
+  if (newTask?.id !== route.query.taskId) {
+    router.push({
+      query: { ...route.query, taskId: newTask?.id || undefined }
+    })
+  }
+})
 
 const boardLogs = ref<BoardLog[]>([])
 const exportComments = ref(false)
@@ -122,8 +132,6 @@ async function acceptTransfer() {
 }
 
 const mcpConfigCopied = ref(false)
-const mcpToken = ref<string | null>(null)
-const tokenLoading = ref(false)
 const showToken = ref(false)
 const tokenCopied = ref(false)
 const mcpFunctions = ref<string[]>([])
@@ -184,54 +192,10 @@ async function copyToken() {
   setTimeout(() => { tokenCopied.value = false }, 2000)
 }
 
-const mcpConfig = computed(() => {
-  const origin = import.meta.client ? window.location.origin : ''
-  const url = `${origin}/api/boards/${boardId}/mcp`
-
-  const server: Record<string, any> = {
-    type: 'streamable-http',
-    url
-  }
-  if (mcpToken.value) {
-    server.headers = {
-      Authorization: `Bearer ${mcpToken.value}`
-    }
-  }
-
-  const config = {
-    mcpServers: {
-      'moo-tasks': server
-    }
-  }
-  return JSON.stringify(config, null, 2)
-})
-
 async function copyMcpConfig() {
   await navigator.clipboard.writeText(mcpConfig.value)
   mcpConfigCopied.value = true
   setTimeout(() => { mcpConfigCopied.value = false }, 2000)
-}
-
-async function generateToken() {
-  tokenLoading.value = true
-  try {
-    const res = await $fetch<{ token: string }>(`/api/boards/${boardId}/token`, { method: 'POST' })
-    mcpToken.value = res.token
-    showToken.value = false
-  } finally {
-    tokenLoading.value = false
-  }
-}
-
-async function revokeToken() {
-  tokenLoading.value = true
-  try {
-    await $fetch(`/api/boards/${boardId}/token`, { method: 'DELETE' })
-    mcpToken.value = null
-    showToken.value = false
-  } finally {
-    tokenLoading.value = false
-  }
 }
 
 async function exportBoard() {
