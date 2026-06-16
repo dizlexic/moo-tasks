@@ -80,9 +80,10 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
   const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
 
   const getPermissions = (status: string) => {
-    const column = columns.find(c => c.status === status);
-    return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true };
-  };
+    const column = columns.find(c => c.status === status)
+    if (!column) return { view: false, add: false, move: false, delete: false }
+    return (column.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true }
+  }
 
   const server = new McpServer({
     name: `moo-tasks-${boardId}`,
@@ -101,11 +102,6 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     },
     async ({ status, priority, limit, offset }) => {
       if (enabledFunctions['list-tasks'] === false) throw new Error('Tool disabled')
-
-      const getPermissions = (status: string) => {
-        const column = columns.find(c => c.status === status)
-        return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true }
-      }
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority, limit, offset } })
       
@@ -163,11 +159,6 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     async ({ title, description, priority, parentTaskId }) => {
       if (enabledFunctions['create-task'] === false) throw new Error('Tool disabled')
 
-      const getPermissions = (status: string) => {
-        const column = columns.find(c => c.status === status)
-        return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true }
-      }
-
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'create-task', data: { title, priority, parentTaskId } })
       if (!getPermissions('backlog').add) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
 
@@ -203,11 +194,6 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     },
     async ({ taskId, status }) => {
       if (enabledFunctions['update-task-status'] === false) throw new Error('Tool disabled')
-
-      const getPermissions = (status: string) => {
-        const column = columns.find(c => c.status === status)
-        return (column?.permissions as Record<string, boolean>) || { view: true, add: true, move: true, delete: true }
-      }
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'update-task-status', data: { taskId, status } })
       const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
