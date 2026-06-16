@@ -15,15 +15,18 @@ const emit = defineEmits<{
 
 const linkCopied = ref(false)
 
+const taskUrl = computed(() => {
+  const origin = window.location.origin
+  const slug = slugify(props.task.title)
+  return `${origin}/boards/${props.boardId}/tasks/${props.task.boardTaskId}/${slug}?taskId=${props.task.id}`
+})
+
 async function copyToClipboard(text: string) {
   await navigator.clipboard.writeText(text)
 }
 
 async function copyTaskLink() {
-  const origin = window.location.origin
-  const slug = slugify(props.task.title)
-  const url = `${origin}/boards/${props.boardId}/tasks/${props.task.boardTaskId}/${slug}`
-  await navigator.clipboard.writeText(url)
+  await navigator.clipboard.writeText(taskUrl.value)
   linkCopied.value = true
   setTimeout(() => { linkCopied.value = false }, 2000)
 }
@@ -43,8 +46,8 @@ async function copyTaskLink() {
         class="text-sm font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all flex items-center gap-1.5"
         :aria-label="linkCopied ? 'Link copied' : 'Copy task link'"
       >
-        <span aria-hidden="true">{{ linkCopied ? '✓' : '🔗' }}</span>
-        <span>{{ linkCopied ? 'Copied' : 'Link' }}</span>
+        <span aria-hidden="true">{{ linkCopied ? '✓' : '📋' }}</span>
+        <span>{{ linkCopied ? 'Copied' : 'Copy' }}</span>
       </button>
     </div>
     <div class="flex items-center gap-3">
