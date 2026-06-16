@@ -4,6 +4,7 @@ export interface BoardWithActivity extends Board {
   lastVisitedAt: string | null
   lastActivityAt: string | null
   isFavorite: boolean
+  favoritedAt: string | null
 }
 
 export interface Invitation {
