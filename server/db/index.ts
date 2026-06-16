@@ -14,32 +14,9 @@ function getPoolConfig(): mysql.PoolOptions {
   }
 
   if (databaseUrl) {
-    console.log('Using DATABASE_URL:', databaseUrl);
-    try {
-      const url = new URL(databaseUrl)
-      console.log('Parsed URL:', url.hostname, url.port);
-      const sslParam = url.searchParams.get('ssl')
-      const sslModeParam = url.searchParams.get('ssl-mode')
-
-      // Strip ssl/ssl-mode from URL and pass SSL as a proper config object.
-      // mysql2 doesn't recognise ssl-mode (DigitalOcean style) or bare
-      // ssl=true strings — it needs an actual ssl options object.
-      if (sslParam || sslModeParam) {
-        url.searchParams.delete('ssl')
-        url.searchParams.delete('ssl-mode')
-      }
-
-      const needsSsl = !!(sslParam || sslModeParam)
-      const cleanUrl = url.toString()
-
-      return {
-        ...baseOpts,
-        uri: cleanUrl,
-        ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : {}),
-      }
-    } catch {
-      // Fallback to original string if URL parsing fails
-      return { ...baseOpts, uri: databaseUrl }
+    return {
+      ...baseOpts,
+      uri: databaseUrl,
     }
   }
 
