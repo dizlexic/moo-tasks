@@ -82,7 +82,7 @@ const difficultyColors: Record<number, string> = {
       <div
         v-for="tag in taskTagsList.slice(0, 4)"
         :key="tag.id"
-        :title="tag.name"
+        :data-tooltip="tag.name"
         class="w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
         :style="{ backgroundColor: tag.color, color: 'white' }"
       >
