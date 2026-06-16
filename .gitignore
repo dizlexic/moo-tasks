@@ -31,4 +31,5 @@ db.sqlite-shm
 .ai
 .junie
 .grok
+opencode.json
 *.txt
