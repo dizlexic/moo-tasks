@@ -59,6 +59,7 @@ npx tsx scripts/migrate.ts || {
 
 echo "Starting server in ${NODE_ENV:-production} mode..."
 if [ "${NODE_ENV:-production}" = "production" ]; then
+  # Use sh -c to ensure environment variables are expanded correctly
   exec npm run serve
 else
   exec npm run dev -- --host 0.0.0.0
