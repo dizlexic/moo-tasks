@@ -34,17 +34,15 @@ async function applyPlan(planId: string) {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md" @mousedown.self="emit('close')">
-    <div class="bg-white dark:bg-surface-card rounded-3xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-surface-border overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[80vh]">
-      <div class="p-6 border-b border-gray-100 dark:border-surface-border flex justify-between items-center bg-gray-50/50 dark:bg-surface-raised/30">
+  <BaseModal @close="emit('close')">
+    <template #header>
         <div>
           <h2 class="text-xl font-black text-gray-900 dark:text-white tracking-tight">Apply Task Plan</h2>
           <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1">Select a template to populate your board</p>
         </div>
-        <button @click="emit('close')" class="text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors text-2xl leading-none">&times;</button>
-      </div>
+    </template>
 
-      <div class="p-6 space-y-4 flex-1 overflow-hidden flex flex-col">
+    <div class="space-y-4 flex flex-col h-full">
         <div v-if="error" class="p-3 bg-red-50 dark:bg-neon-red/10 border border-red-100 dark:border-neon-red/20 rounded-xl text-xs font-bold text-red-600 dark:text-neon-red">
           {{ error }}
         </div>
@@ -92,12 +90,12 @@ async function applyPlan(planId: string) {
             </div>
           </button>
         </div>
-      </div>
-      <div class="p-6 bg-gray-50 dark:bg-surface-raised/30 border-t border-gray-100 dark:border-surface-border flex justify-center">
-          <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Apply a plan to add its tasks to this board's Todo column</p>
-      </div>
     </div>
-  </div>
+
+    <template #footer>
+        <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 text-center">Apply a plan to add its tasks to this board's Todo column</p>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
