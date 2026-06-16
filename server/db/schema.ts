@@ -175,6 +175,17 @@ export const planTasks = mysqlTable('plan_tasks', {
   updatedAt: timestamp('updated_at').notNull(),
 })
 
+export const boardTokens = mysqlTable('board_tokens', {
+  id: varchar('id', { length: 191 }).primaryKey(),
+  boardId: varchar('board_id', { length: 191 }).notNull().references(() => boards.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id', { length: 191 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull(),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+})
+
+export type BoardToken = typeof boardTokens.$inferSelect
+export type NewBoardToken = typeof boardTokens.$inferInsert
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Board = typeof boards.$inferSelect

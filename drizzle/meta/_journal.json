@@ -120,6 +120,13 @@
       "when": 1781172852719,
       "tag": "0016_purple_logan",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1781614005553,
+      "tag": "0017_condemned_thunderbolt",
+      "breakpoints": true
     }
   ]
 }
