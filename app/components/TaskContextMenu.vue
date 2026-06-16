@@ -18,11 +18,38 @@ const x = ref(0)
 const y = ref(0)
 const menuRef = ref<HTMLElement | null>(null)
 
-function open(event: MouseEvent, t: Task) {
+async function open(event: MouseEvent, t: Task) {
   task.value = t
-  x.value = event.clientX
-  y.value = event.clientY
   show.value = true
+
+  await nextTick()
+
+  if (menuRef.value) {
+    const { width, height } = menuRef.value.getBoundingClientRect()
+    const { innerWidth, innerHeight } = window
+
+    let newX = event.clientX
+    let newY = event.clientY
+
+    // If overflows right
+    if (newX + width > innerWidth) {
+      newX = innerWidth - width - 10
+    }
+
+    // If overflows bottom
+    if (newY + height > innerHeight) {
+      newY = newY - height // Place above mouse
+      if (newY < 0) { // If it also overflows top, just push to bottom
+         newY = innerHeight - height - 10
+      }
+    }
+
+    x.value = Math.max(10, newX)
+    y.value = Math.max(10, newY)
+  } else {
+    x.value = event.clientX
+    y.value = event.clientY
+  }
   document.addEventListener('click', close)
 }
 
