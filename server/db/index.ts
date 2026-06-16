@@ -31,6 +31,7 @@ function getPoolConfig(): mysql.PoolOptions {
   }
 }
 
-const dbConnection = mysql.createPool(getPoolConfig()).promise()
+const poolConfig = getPoolConfig()
+const dbConnection = mysql.createPool(poolConfig).promise()
 
 export const db = drizzle(dbConnection, { schema, mode: 'default' })
