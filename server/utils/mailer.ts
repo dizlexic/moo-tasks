@@ -2,6 +2,10 @@ import nodemailer from 'nodemailer';
 
 let transporter: nodemailer.Transporter | null = null;
 
+export const resetTransporter = () => {
+  transporter = null;
+};
+
 const getTransporter = () => {
   if (!transporter) {
     transporter = nodemailer.createTransport({
