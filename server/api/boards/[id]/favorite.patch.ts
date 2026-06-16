@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   
   await db.update(boardMembers)
-    .set({ isFavorite: body.isFavorite })
+    .set({ isFavorite: body.isFavorite, favoritedAt: body.isFavorite ? new Date() : null })
     .where(and(eq(boardMembers.boardId, id), eq(boardMembers.userId, session.user.id)))
     
   return { success: true }
