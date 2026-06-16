@@ -24,6 +24,11 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
+    esbuild: {
+      options: {
+        target: 'es2019'
+      }
+    }
   },
   css: ['~/assets/css/main.css'],
   vite: {
