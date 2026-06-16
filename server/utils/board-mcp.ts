@@ -109,16 +109,18 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority, limit, offset } })
       
-      const allowedStatuses = ['todo', 'in_progress'];
-      if (board.allowAiReview) {
-        allowedStatuses.push('review');
+      const viewableStatuses = columns
+        .filter(c => getPermissions(c.status).view)
+        .map(c => c.status);
+
+      if (status && !viewableStatuses.includes(status)) {
+        return { content: [{ type: 'text', text: JSON.stringify({ error: 'Status not found or not viewable' }) }], isError: true }
       }
 
       const conditions = [
         eq(tasks.boardId, boardId),
-        inArray(tasks.status, allowedStatuses as any)
+        inArray(tasks.status, (status ? [status] : viewableStatuses) as any)
       ]
-      if (status) conditions.push(eq(tasks.status, status))
       if (priority) conditions.push(eq(tasks.priority, priority))
 
       let q = db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
