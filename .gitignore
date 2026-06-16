@@ -18,6 +18,7 @@ logs
 .fleet
 .idea
 
+*.db
 # Database
 db.sqlite
 db.sqlite-wal
@@ -29,4 +30,5 @@ db.sqlite-shm
 !.env.example
 .ai
 .junie
+.grok
 *.txt
