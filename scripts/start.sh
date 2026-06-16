@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-npm run build
+# npm run build  # Already built in the Dockerfile build stage
 
 echo "Checking database connection..."
 # Wait for database port to be open
