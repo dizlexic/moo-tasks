@@ -15,14 +15,6 @@ const { tags, fetchTags } = useTags(boardId)
 const { mcpToken, tokenLoading, generateToken, revokeToken, mcpConfig } = useBoardToken(boardId)
 const router = useRouter()
 
-watch(selectedTask, (newTask) => {
-  if (newTask?.id !== route.query.taskId) {
-    router.push({
-      query: { ...route.query, taskId: newTask?.id || undefined }
-    })
-  }
-})
-
 const boardLogs = ref<BoardLog[]>([])
 const exportComments = ref(false)
 const recipientEmail = ref('')
@@ -42,6 +34,14 @@ watch(searchQuery, () => {
   }, 300)
 })
 const selectedTask = ref<Task | null>(null)
+
+watch(selectedTask, (newTask) => {
+  if (newTask?.id !== route.query.taskId) {
+    router.push({
+      query: { ...route.query, taskId: newTask?.id || undefined }
+    })
+  }
+})
 const showSettings = ref(false)
 const showApplyPlan = ref(false)
 const showChangelog = ref(false)
