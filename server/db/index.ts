@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/mysql2'
-import mysql from 'mysql2/promise'
+import mysql from 'mysql2'
 import * as schema from './schema'
 
 function getPoolConfig(): mysql.PoolOptions {
@@ -31,12 +31,6 @@ function getPoolConfig(): mysql.PoolOptions {
   }
 }
 
-let dbConnection: mysql.Connection | mysql.Pool;
-
-if (process.env.DATABASE_URL) {
-  dbConnection = await mysql.createConnection(process.env.DATABASE_URL);
-} else {
-  dbConnection = mysql.createPool(getPoolConfig());
-}
+const dbConnection = mysql.createPool(getPoolConfig()).promise()
 
 export const db = drizzle(dbConnection, { schema, mode: 'default' })
