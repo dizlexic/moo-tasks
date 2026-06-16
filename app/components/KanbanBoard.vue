@@ -26,6 +26,7 @@ const contextMenu = ref<{ open: (event: MouseEvent, task: Task) => void } | null
 const isDown = ref(false)
 const startX = ref(0)
 const scrollLeft = ref(0)
+const isDragging = ref(false)
 
 const filteredTasks = computed(() => {
   if (!props.searchQuery) return tasks.value
@@ -110,6 +111,7 @@ async function onArchiveAll() {
 
 <template>
   <div ref="boardContainer" 
+       :class="{'select-none': isDragging}"
        class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:snap-none cursor-grab active:cursor-grabbing"
        @mousedown="onMouseDown"
        @mouseleave="onMouseLeave"
@@ -132,6 +134,8 @@ async function onArchiveAll() {
       @archive-all="onArchiveAll"
       @open-mass-action="emit('openMassAction', $event)"
       @generate-changelog="emit('generateChangelog')"
+      @drag-start="isDragging = true"
+      @drag-end="isDragging = false"
     />
     <TaskContextMenu ref="contextMenu" :board-id="boardId" />
   </div>

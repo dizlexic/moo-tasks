@@ -19,6 +19,8 @@ const emit = defineEmits<{
   archiveAll: []
   openMassAction: [taskIds: string[]]
   generateChangelog: []
+  dragStart: []
+  dragEnd: []
 }>()
 
 const localTasks = ref<Task[]>([...props.tasks])
@@ -200,6 +202,8 @@ defineExpose({ resetSelection })
       chosen-class="sortable-chosen"
       :animation="200"
       @change="onChange"
+      @start="$emit('dragStart')"
+      @end="$emit('dragEnd')"
       @dragenter="isDragOver = true"
       @dragleave="isDragOver = false"
     >

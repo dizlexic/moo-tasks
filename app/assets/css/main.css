@@ -73,6 +73,7 @@ html.transitioning *::after {
   transform: rotate(1.5deg) scale(1.02);
   z-index: 9999;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 240, 255, 0.2) !important;
+  user-select: none;
 }
 
 .sortable-chosen {
