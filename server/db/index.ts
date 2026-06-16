@@ -14,8 +14,10 @@ function getPoolConfig(): mysql.PoolOptions {
   }
 
   if (databaseUrl) {
+    console.log('Using DATABASE_URL:', databaseUrl);
     try {
       const url = new URL(databaseUrl)
+      console.log('Parsed URL:', url.hostname, url.port);
       const sslParam = url.searchParams.get('ssl')
       const sslModeParam = url.searchParams.get('ssl-mode')
 
@@ -43,7 +45,7 @@ function getPoolConfig(): mysql.PoolOptions {
 
   return {
     ...baseOpts,
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST === 'db' ? 'localhost' : (process.env.DB_HOST || 'localhost'),
     port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'mootasks',
     password: process.env.DB_PASSWORD || 'password',
