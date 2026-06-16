@@ -1,4 +1,4 @@
-import { getRouterParam, defineEventHandler, createError } from 'h3'
+import { getQuery, getRouterParam, defineEventHandler, createError } from 'h3'
 import { eq, and, desc } from 'drizzle-orm'
 import { db } from '../../../db'
 import { boards, boardMembers, boardLogs } from '#server/db/schema'
@@ -6,6 +6,10 @@ import { boards, boardMembers, boardLogs } from '#server/db/schema'
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event)
   const id = getRouterParam(event, 'id')!
+  const query = getQuery(event)
+  const page = parseInt(query.page as string || '1')
+  const limit = parseInt(query.limit as string || '100')
+  const offset = (page - 1) * limit
 
   const boardsResult = await db.select().from(boards).where(eq(boards.id, id))
   const board = boardsResult[0]
@@ -24,4 +28,6 @@ export default defineEventHandler(async (event) => {
     .from(boardLogs)
     .where(eq(boardLogs.boardId, id))
     .orderBy(desc(boardLogs.createdAt))
+    .limit(limit)
+    .offset(offset)
 })
