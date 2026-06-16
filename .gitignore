@@ -18,11 +18,9 @@ logs
 .fleet
 .idea
 
-*.db
 # Database
-db.sqlite
-db.sqlite-wal
-db.sqlite-shm
+*.db*
+*.sqlite*
 
 # Local env files
 .env
