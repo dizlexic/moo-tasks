@@ -32,6 +32,7 @@ export const boardMembers = mysqlTable('board_members', {
   userId: varchar('user_id', { length: 191 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
   role: mysqlEnum('role', ['owner', 'member']).notNull().default('member'),
   isFavorite: boolean('is_favorite').notNull().default(false),
+  favoritedAt: timestamp('favorited_at'),
   lastVisitedAt: timestamp('last_visited_at'),
   joinedAt: timestamp('joined_at').notNull(),
 }, (table) => [

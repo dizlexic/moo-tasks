@@ -1,0 +1,1 @@
+ALTER TABLE `board_members` ADD `favorited_at` timestamp;
