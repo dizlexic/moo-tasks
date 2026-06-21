@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   srcDir: 'app/',
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxtjs/mcp-toolkit', 'nuxt-auth-utils'],
+  modules: ['@nuxtjs/mcp-toolkit', 'nuxt-auth-utils', '@nuxt/icon'],
   app: {
     head: {
       link: [

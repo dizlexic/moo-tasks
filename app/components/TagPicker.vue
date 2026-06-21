@@ -8,9 +8,9 @@
       :style="{ backgroundColor: tag.color, color: 'white' }"
       @click="toggleTag(tag.id)"
     >
-      <span>{{ getIcon(tag.icon) }}</span>
+      <Icon :name="getIcon(tag.icon)" />
       <span>{{ tag.name }}</span>
-      <span @click.stop="confirmDeleteTag(tag.id)" class="hover:text-red-500 cursor-pointer">×</span>
+      <Icon name="mdi:close" @click.stop="confirmDeleteTag(tag.id)" class="hover:text-red-500 cursor-pointer" />
     </div>
     <button
       type="button"

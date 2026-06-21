@@ -18,6 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nuxt/icon": "^2.2.3",
     "@nuxtjs/mcp-toolkit": "^0.13.4",
     "@tailwindcss/vite": "^4.2.3",
     "drizzle-kit": "^0.31.10",
