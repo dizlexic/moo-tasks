@@ -512,7 +512,7 @@ onUnmounted(() => stopSocket())
         <div v-show="activeTab === 'mcp'" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div class="space-y-6">
             <!-- MCP Bearer Token, Privacy, Functions -->
-            <div v-if="board.role === 'owner' || true" class="space-y-3">
+            <div class="space-y-3">
               <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">{{ board.role === 'owner' ? 'MCP Bearer Token' : 'Your Personal MCP Token' }}</label>
               <div v-if="mcpToken" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <div class="flex-1 flex items-center gap-3 bg-gray-50 dark:bg-surface-dark/50 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-2.5">
