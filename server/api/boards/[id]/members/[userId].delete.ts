@@ -1,7 +1,7 @@
-import { getRouterParam } from 'h3'
+import { getRouterParam, createError } from 'h3'
 import { eq, and } from 'drizzle-orm'
 import { db } from '../../../../db'
-import { boardMembers } from '../../../../db/schema'
+import { boardMembers, boardTokens } from '../../../../db/schema'
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event)
@@ -35,6 +35,10 @@ export default defineEventHandler(async (event) => {
 
   await db.delete(boardMembers)
     .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, userId)))
+
+  // Revoke user's board tokens
+  await db.delete(boardTokens)
+    .where(and(eq(boardTokens.boardId, boardId), eq(boardTokens.userId, userId)))
 
   return { removed: true }
 })
