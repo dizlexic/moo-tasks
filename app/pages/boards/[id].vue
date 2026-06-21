@@ -12,8 +12,12 @@ const userEmail = computed(() => user.value?.email)
 const board = ref<(Board & { role: string, transfer: any }) | null>(null)
 const { fetchTasks, tasksByStatus, moveTask, createTask, updateTask, deleteTask, startSocket, stopSocket, tasks } = useTasks(boardId)
 const { tags, fetchTags } = useTags(boardId)
-const { mcpToken, tokenLoading, generateToken, revokeToken, mcpConfig } = useBoardToken(boardId)
+const { mcpToken, tokenLoading, generateToken, generateMemberToken, revokeToken, revokeMemberToken, mcpConfig } = useBoardToken(boardId)
 const router = useRouter()
+
+const isOwner = computed(() => board.value?.role === 'owner')
+const generateTokenAction = isOwner.value ? generateToken : generateMemberToken
+const revokeTokenAction = isOwner.value ? revokeToken : revokeMemberToken
 
 const boardLogs = ref<BoardLog[]>([])
 const exportComments = ref(false)
@@ -507,8 +511,8 @@ onUnmounted(() => stopSocket())
         <div v-show="activeTab === 'mcp'" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div class="space-y-6">
             <!-- MCP Bearer Token, Privacy, Functions -->
-            <div v-if="board.role === 'owner'" class="space-y-3">
-              <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">MCP Bearer Token</label>
+            <div v-if="board.role === 'owner' || true" class="space-y-3">
+              <label class="text-sm font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block ml-1">{{ board.role === 'owner' ? 'MCP Bearer Token' : 'Your Personal MCP Token' }}</label>
               <div v-if="mcpToken" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <div class="flex-1 flex items-center gap-3 bg-gray-50 dark:bg-surface-dark/50 border border-gray-200 dark:border-surface-border rounded-xl px-4 py-2.5">
                   <code class="flex-1 text-[11px] font-mono truncate text-gray-700 dark:text-neon-cyan/80">
@@ -532,17 +536,17 @@ onUnmounted(() => stopSocket())
                   </div>
                 </div>
                 <div class="flex gap-2">
-                  <button @click="generateToken" :disabled="tokenLoading" class="flex-1 sm:flex-none text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-orange/20 bg-neon-orange/5 text-orange-600 dark:text-neon-orange hover:bg-neon-orange/15 transition-all disabled:opacity-50">
+                  <button @click="generateTokenAction" :disabled="tokenLoading" class="flex-1 sm:flex-none text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-orange/20 bg-neon-orange/5 text-orange-600 dark:text-neon-orange hover:bg-neon-orange/15 transition-all disabled:opacity-50">
                     🔄 Rotate
                   </button>
-                  <button @click="revokeToken" :disabled="tokenLoading" class="flex-1 sm:flex-none text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-red/20 bg-neon-red/5 text-red-600 dark:text-neon-red hover:bg-neon-red/15 transition-all disabled:opacity-50">
+                  <button @click="revokeTokenAction" :disabled="tokenLoading" class="flex-1 sm:flex-none text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-red/20 bg-neon-red/5 text-red-600 dark:text-neon-red hover:bg-neon-red/15 transition-all disabled:opacity-50">
                     🗑 Revoke
                   </button>
                 </div>
               </div>
               <div v-else>
-                <button @click="generateToken" :disabled="tokenLoading" class="text-sm font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl border border-neon-cyan/20 bg-neon-cyan/5 text-cyan-600 dark:text-neon-cyan hover:bg-neon-cyan/15 transition-all disabled:opacity-50 shadow-sm shadow-neon-cyan/5">
-                  🔑 Generate Token
+                <button @click="generateTokenAction" :disabled="tokenLoading" class="text-sm font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl border border-neon-cyan/20 bg-neon-cyan/5 text-cyan-600 dark:text-neon-cyan hover:bg-neon-cyan/15 transition-all disabled:opacity-50 shadow-sm shadow-neon-cyan/5">
+                  🔑 {{ board.role === 'owner' ? 'Generate Token' : 'Generate Personal Token' }}
                 </button>
                 <p v-if="!board.mcpPublic" class="text-[10px] font-semibold text-red-500 dark:text-neon-red/80 mt-2 ml-1">
                   The MCP endpoint is private. A token is required for access.
