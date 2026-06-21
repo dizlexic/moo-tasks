@@ -1,7 +1,7 @@
 import { getRouterParam } from 'h3'
 import { eq, and } from 'drizzle-orm'
 import { db } from '../../db'
-import { boards, boardMembers, boardTransfers } from '../../db/schema'
+import { boards, boardMembers, boardTransfers, boardTokens } from '../../db/schema'
 import { logBoardEvent } from '../../utils/logs'
 import { getHeader } from 'h3'
 
@@ -31,6 +31,13 @@ export default defineEventHandler(async (event) => {
   const transfer = pendingTransfer[0]
   console.log('Transfer', transfer)
 
+  let memberToken = null
+  if (membership.role !== 'owner') {
+    const memberTokenResult = await db.select().from(boardTokens)
+      .where(and(eq(boardTokens.boardId, id), eq(boardTokens.userId, session.user.id)))
+    memberToken = memberTokenResult[0]?.token
+  }
+
   await db.update(boardMembers)
     .set({ lastVisitedAt: new Date() })
     .where(and(eq(boardMembers.boardId, id), eq(boardMembers.userId, session.user.id)))
@@ -48,6 +55,7 @@ export default defineEventHandler(async (event) => {
     ...boardData,
     role: membership.role,
     ...(membership.role === 'owner' ? { mcpToken } : {}),
+    ...(membership.role !== 'owner' ? { mcpToken: memberToken } : {}),
     transfer: transfer || null,
   }
 })
