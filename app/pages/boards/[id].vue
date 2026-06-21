@@ -16,8 +16,8 @@ const { mcpToken, tokenLoading, generateToken, generateMemberToken, revokeToken,
 const router = useRouter()
 
 const isOwner = computed(() => board.value?.role === 'owner')
-const generateTokenAction = isOwner.value ? generateToken : generateMemberToken
-const revokeTokenAction = isOwner.value ? revokeToken : revokeMemberToken
+const generateTokenAction = computed(() => isOwner.value ? generateToken : generateMemberToken)
+const revokeTokenAction = computed(() => isOwner.value ? revokeToken : revokeMemberToken)
 
 const boardLogs = ref<BoardLog[]>([])
 const exportComments = ref(false)
