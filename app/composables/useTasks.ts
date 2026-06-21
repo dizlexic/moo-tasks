@@ -103,11 +103,18 @@ export function useTasks(boardId: string) {
     return updateTask(id, { status, order })
   }
 
+  const onConnect = () => {
+    const socket = getSocket()
+    if (socket) socket.emit('join-board', boardId)
+  }
+
   function startSocket() {
     if (!import.meta.client) return
 
     const socket = connect()
     socket.emit('join-board', boardId)
+
+    socket.on('connect', onConnect)
 
     socket.on('task:created', (task: Task) => {
       const exists = tasks.value.some(t => t.id === task.id)
@@ -133,6 +140,7 @@ export function useTasks(boardId: string) {
     if (!socket) return
 
     socket.emit('leave-board', boardId)
+    socket.off('connect', onConnect)
     socket.off('task:created')
     socket.off('task:updated')
     socket.off('task:deleted')
