@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
-import { getUserSessionCustom, clearUserSessionCustom } from '../lib/session'
+import { getUserSessionCustom, clearUserSession } from '../utils/session'
 
 export default defineEventHandler(async (event) => {
   // Only check for API and page requests, skip static assets if they go through h3
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     if (!user) {
       // User in session but not in database.
       // This happens if the database was reset but the cookie remains.
-      await clearUserSessionCustom(event)
+      await clearUserSession(event)
     }
   }
 })

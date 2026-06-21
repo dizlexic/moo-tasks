@@ -3,11 +3,11 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../db'
 import { users, invitations, boardMembers } from '../../db/schema'
 import { generateId } from '../../utils/id'
-import { hashPassword } from '../../lib/password'
+import { hashPassword } from '../../utils/password'
 import { createEmailVerificationToken } from '../../utils/auth'
 import { getVerificationEmail } from '../../utils/email-templates'
 import { sendEmail } from '../../utils/mailer'
-import { replaceUserSessionCustom } from '../../lib/session'
+import { replaceUserSession } from '../../utils/session'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
     await db.delete(invitations).where(eq(invitations.id, invite.id))
   }
 
-  await replaceUserSessionCustom(event, {
+  await replaceUserSession(event, {
     user: {
       id: user.id,
       email: user.email,
