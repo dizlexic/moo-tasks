@@ -16,9 +16,11 @@ export function useBoardToken(boardId: string) {
 
   async function generateMemberToken() {
     tokenLoading.value = true
+    console.log('Generating member token')
     try {
       const res = await $fetch<{ token: string }>(`/api/boards/${boardId}/member-token`, { method: 'POST' })
       mcpToken.value = res.token
+      console.log('Member token generated', res.token)
     } finally {
       tokenLoading.value = false
     }

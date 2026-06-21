@@ -239,6 +239,7 @@ async function exportBoard() {
 async function loadBoard() {
   try {
     const data = await $fetch<Board & { role: string }>(`/api/boards/${boardId}`)
+    console.log('Board data', data)
     board.value = data
     mcpToken.value = (data as any).mcpToken || null
   } catch {

@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
     const memberTokenResult = await db.select().from(boardTokens)
       .where(and(eq(boardTokens.boardId, id), eq(boardTokens.userId, session.user.id)))
     memberToken = memberTokenResult[0]?.token
+    console.log('Member token for user', session.user.id, 'is', memberToken)
   }
 
   await db.update(boardMembers)
