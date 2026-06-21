@@ -17,14 +17,27 @@ export default defineEventHandler(async (event) => {
   }
 
   const token = `mab_${generateId(32)}`
-  await db.insert(boardTokens).values({
-    id: generateId(16),
-    boardId: id,
-    userId: session.user.id,
-    token,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  })
+  
+  // Check for existing token
+  const existingToken = await db.select().from(boardTokens)
+    .where(and(eq(boardTokens.boardId, id), eq(boardTokens.userId, session.user.id)))
+    
+  if (existingToken.length > 0) {
+    // Update existing
+    await db.update(boardTokens)
+      .set({ token, updatedAt: new Date() })
+      .where(eq(boardTokens.id, existingToken[0].id))
+  } else {
+    // Insert new
+    await db.insert(boardTokens).values({
+      id: generateId(16),
+      boardId: id,
+      userId: session.user.id,
+      token,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+  }
 
   return { token }
 })
