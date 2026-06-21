@@ -2,7 +2,7 @@ import { getRouterParam, createError, defineEventHandler, readBody } from 'h3'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { eq } from 'drizzle-orm'
 import { db } from '../../../db'
-import { boards } from '../../../db/schema'
+import { boards, users } from '../../../db/schema'
 import { createBoardMcpServer } from '../../../utils/board-mcp'
 import { logBoardEvent } from '../../../utils/logs'
 
@@ -36,6 +36,14 @@ export default defineEventHandler(async (event) => {
     const token = authHeader.slice(7).trim()
 
     let authenticated = (token === board.mcpToken)
+
+    if (!authenticated) {
+      const { boardTokens } = await import('../../../db/schema')
+      const tokenResults = await db.select().from(boardTokens).where(eq(boardTokens.token, token))
+      if (tokenResults.length > 0 && tokenResults[0].boardId === boardId) {
+        authenticated = true
+      }
+    }
 
     if (!authenticated && board.allowAccountToken) {
       // Find user by account token
