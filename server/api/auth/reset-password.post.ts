@@ -2,7 +2,7 @@ import { readBody } from 'h3'
 import { eq, and, gt } from 'drizzle-orm'
 import { db } from '../../db'
 import { passwordResetTokens, users } from '../../db/schema'
-import { hashPassword } from '../../utils/password'
+import { hashPassword } from '../../lib/password'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)

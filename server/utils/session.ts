@@ -3,7 +3,7 @@ import { useSession, createError } from 'h3'
 /**
  * Get the user session from the cookie.
  */
-export async function getUserSession(event: any) {
+export async function getUserSessionCustom(event: any) {
   const session = await _useRawSession(event)
   return session.data || { user: null }
 }
@@ -40,7 +40,7 @@ export async function clearUserSession(event: any) {
  * Require a user session, throws 401 if not logged in.
  */
 export async function requireUserSession(event: any, opts: { statusCode?: number; message?: string } = {}) {
-  const userSession = await getUserSession(event)
+  const userSession = await getUserSessionCustom(event)
   if (!userSession.user) {
     throw createError({
       statusCode: opts.statusCode || 401,

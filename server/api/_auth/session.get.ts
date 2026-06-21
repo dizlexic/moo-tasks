@@ -1,7 +1,7 @@
 import { eventHandler } from 'h3'
-import {getUserSession} from "../../utils/session";
+import {getUserSessionCustom} from "../../lib/session";
 
 export default eventHandler(async (event) => {
-  const session = await getUserSession(event)
+  const session = await getUserSessionCustom(event)
   return session
 })
