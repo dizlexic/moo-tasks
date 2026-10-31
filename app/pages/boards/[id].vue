@@ -337,7 +337,7 @@ onUnmounted(() => stopSocket())
             <span class="text-sm">📋</span>
           </button>
           <button
-            @click="showSettings = !showSettings"
+            @click="toggleSettings"
             class="p-2.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-surface-card border border-gray-200 dark:border-surface-border rounded-xl hover:bg-gray-50 dark:hover:bg-surface-raised transition-all active:scale-95 shadow-sm"
             :class="{ 'ring-2 ring-neon-cyan/30 border-neon-cyan/50': showSettings }"
             title="Settings"
