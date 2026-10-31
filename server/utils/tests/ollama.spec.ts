@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { generateResponse } from '../ollama'
 
-// Mock the global $fetch
+// Mock the global fetch
 const mockFetch = vi.fn()
-vi.stubGlobal('$fetch', mockFetch)
+vi.stubGlobal('fetch', mockFetch)
 
 describe('ollama utils', () => {
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe('ollama utils', () => {
   describe('generateResponse', () => {
     it('should generate a response successfully', async () => {
       const mockResponse = { response: 'Hello, world!' }
-      mockFetch.mockResolvedValue(mockResponse)
+      mockFetch.mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(mockResponse) })
 
       const prompt = 'Hello'
       const response = await generateResponse(prompt)
@@ -24,11 +24,12 @@ describe('ollama utils', () => {
       expect(response).toBe(mockResponse.response)
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:11434/api/generate', {
         method: 'POST',
-        body: {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           model: 'llama3',
           prompt,
-          stream: false
-        }
+          stream: false,
+        }),
       })
     })
 
@@ -37,16 +38,14 @@ describe('ollama utils', () => {
       process.env.OLLAMA_MODEL = 'custom-model'
       
       const mockResponse = { response: 'Custom response' }
-      mockFetch.mockResolvedValue(mockResponse)
+      mockFetch.mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(mockResponse) })
 
       const prompt = 'Test'
       const response = await generateResponse(prompt, 'custom-model')
 
       expect(response).toBe(mockResponse.response)
       expect(mockFetch).toHaveBeenCalledWith('http://custom-ollama:1234/api/generate', expect.objectContaining({
-        body: expect.objectContaining({
-          model: 'custom-model'
-        })
+        body: JSON.stringify({ model: 'custom-model', prompt, stream: false }),
       }))
     })
 
@@ -55,6 +54,12 @@ describe('ollama utils', () => {
 
       await expect(generateResponse('Hello')).rejects.toThrow('Failed to generate response from Ollama')
       expect(mockFetch).toHaveBeenCalled()
+    })
+
+    it('should throw an error if Ollama returns an unsuccessful response', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 503 })
+
+      await expect(generateResponse('Hello')).rejects.toThrow('Failed to generate response from Ollama')
     })
   })
 })

@@ -27,7 +27,7 @@ vi.mock('../logs', () => ({
 
 describe('board-mcp utils', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     invalidateBoardMetadata() // ensure cache bypass so mocked selects are always exercised
   })
 
@@ -72,7 +72,7 @@ describe('board-mcp utils', () => {
       expect(registeredTools).toHaveProperty('get-task')
     })
 
-    it('should respect permissions in list-tasks', async () => {
+    it('should reject inaccessible statuses in list-tasks', async () => {
       const mockBoard = {
         id: 'board-1',
         mcpEnabledFunctions: { 'list-tasks': true },
@@ -96,22 +96,10 @@ describe('board-mcp utils', () => {
       // @ts-ignore
       const listTasksHandler = server._registeredTools['list-tasks'].handler
       
-      const mockTasks = [
-        { id: 'task-1', status: 'todo' }
-      ]
-      
-      ;(db.select as any).mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue(mockTasks),
-          offset: vi.fn().mockResolvedValue(mockTasks),
-        }),
-      })
-
       const result = await listTasksHandler({ status: 'todo' })
       const parsedResult = JSON.parse(result.content[0].text)
-      expect(parsedResult.tasks).toHaveLength(0)
+      expect(result.isError).toBe(true)
+      expect(parsedResult.error).toBe('Status not found or not viewable')
     })
 
     it('supports limit + offset pagination in list-tasks (DB-backed, exercises limit/offset path)', async () => {
