@@ -5,7 +5,18 @@ export default defineNuxtConfig({
   srcDir: 'app/',
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxtjs/mcp-toolkit', 'nuxt-auth-utils', '@nuxt/icon'],
+  modules: [
+    'nuxt-auth-utils',
+    '@nuxt/icon',
+    (_options, nuxt) => {
+      nuxt.hook('nitro:config', (nitroConfig) => {
+        const imports = nitroConfig.imports
+        if (!imports?.dirs) return
+
+        imports.dirs = imports.dirs.filter((dir) => !String(dir).includes('nuxt-auth-utils/dist/runtime/server/utils'))
+      })
+    },
+  ],
   app: {
     head: {
       link: [
