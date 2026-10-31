@@ -5,6 +5,7 @@ export interface BoardWithActivity extends Board {
   lastActivityAt: string | null
   isFavorite: boolean
   favoritedAt: string | null
+  favoriteOrder: number
 }
 
 export interface Invitation {
@@ -75,6 +76,26 @@ export function useBoards() {
     const board = boards.value.find(b => b.id === id)
     if (board) {
       board.isFavorite = isFavorite
+      board.favoritedAt = isFavorite ? new Date().toISOString() : null
+      board.favoriteOrder = 0
+    }
+  }
+
+  async function reorderFavorites(boardIds: string[]) {
+    const previousOrders = new Map(boards.value.map(board => [board.id, board.favoriteOrder]))
+    boardIds.forEach((id, index) => {
+      const board = boards.value.find(candidate => candidate.id === id)
+      if (board) board.favoriteOrder = index
+    })
+
+    try {
+      await $fetch('/api/boards/favorites/reorder', { method: 'PATCH', body: { boardIds } })
+    } catch (error) {
+      boards.value.forEach(board => {
+        const previousOrder = previousOrders.get(board.id)
+        if (previousOrder !== undefined) board.favoriteOrder = previousOrder
+      })
+      throw error
     }
   }
 
@@ -92,6 +113,7 @@ export function useBoards() {
     createBoard, 
     deleteBoard,
     leaveBoard,
-    toggleFavorite
+    toggleFavorite,
+    reorderFavorites
   }
 }

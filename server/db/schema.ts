@@ -33,6 +33,7 @@ export const boardMembers = mysqlTable('board_members', {
   role: mysqlEnum('role', ['owner', 'member']).notNull().default('member'),
   isFavorite: boolean('is_favorite').notNull().default(false),
   favoritedAt: timestamp('favorited_at'),
+  favoriteOrder: int('favorite_order').notNull().default(0),
   lastVisitedAt: timestamp('last_visited_at'),
   joinedAt: timestamp('joined_at').notNull(),
 }, (table) => [

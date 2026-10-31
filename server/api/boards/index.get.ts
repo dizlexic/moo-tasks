@@ -11,7 +11,8 @@ export default defineEventHandler(async (event) => {
       board: boards,
       lastVisitedAt: boardMembers.lastVisitedAt,
       isFavorite: boardMembers.isFavorite,
-      favoritedAt: boardMembers.favoritedAt
+      favoritedAt: boardMembers.favoritedAt,
+      favoriteOrder: boardMembers.favoriteOrder
     })
     .from(boards)
     .innerJoin(boardMembers, eq(boards.id, boardMembers.boardId))
@@ -22,7 +23,8 @@ export default defineEventHandler(async (event) => {
       lastVisitedAt: r.lastVisitedAt,
       lastActivityAt: r.board.lastActivityAt,
       isFavorite: r.isFavorite,
-      favoritedAt: r.favoritedAt
+      favoritedAt: r.favoritedAt,
+      favoriteOrder: r.favoriteOrder
     }))
   } catch (e) {
     console.error('Error in /api/boards:', e);

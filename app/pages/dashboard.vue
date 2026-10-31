@@ -1,14 +1,41 @@
 <script setup lang="ts">
-const { boards, invitations, sentInvitations, loading, fetchBoards, fetchInvitations, fetchSentInvitations, acceptInvitation, rejectInvitation, cancelInvitation, createBoard, leaveBoard, toggleFavorite } = useBoards()
+import draggable from 'vuedraggable'
+
+const { boards, invitations, sentInvitations, loading, fetchBoards, fetchInvitations, fetchSentInvitations, acceptInvitation, rejectInvitation, cancelInvitation, createBoard, leaveBoard, toggleFavorite, reorderFavorites } = useBoards()
 const { user } = useUserSession()
 
 const currentPage = ref(1)
 const pageSize = 12
 
-const favoriteBoards = computed(() => boards.value
+const favoriteBoards = computed({
+  get: () => boards.value
     .filter(b => b.isFavorite)
-    .sort((a, b) => new Date(b.favoritedAt || 0).getTime() - new Date(a.favoritedAt || 0).getTime())
-)
+    .sort((a, b) => a.favoriteOrder - b.favoriteOrder || new Date(b.favoritedAt || 0).getTime() - new Date(a.favoritedAt || 0).getTime()),
+  set: (orderedBoards) => {
+    void saveFavoriteOrder(orderedBoards.map(board => board.id))
+  }
+})
+const savingFavoriteOrder = ref(false)
+const favoriteOrderError = ref('')
+
+async function saveFavoriteOrder(boardIds: string[]) {
+  savingFavoriteOrder.value = true
+  favoriteOrderError.value = ''
+  try {
+    await reorderFavorites(boardIds)
+  } catch {
+    favoriteOrderError.value = 'Could not save your favorite board order. The current order has been restored.'
+  } finally {
+    savingFavoriteOrder.value = false
+  }
+}
+
+function favoriteSortDirection(_event: Event, target: HTMLElement, dragElement: HTMLElement) {
+  const targetRect = target.getBoundingClientRect()
+  const dragRect = dragElement.getBoundingClientRect()
+  return Math.abs(targetRect.top - dragRect.top) <= targetRect.height / 2 ? 'horizontal' : 'vertical'
+}
+
 const otherBoards = computed(() => boards.value
     .filter(b => !b.isFavorite)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -221,14 +248,29 @@ function onDelete(board: any) {
 
       <div v-else class="space-y-12">
         <div v-if="favoriteBoards.length > 0">
-            <h2 class="text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1 mb-6">Favorite Boards</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <h2 class="text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400 ml-1 mb-2">Favorite Boards</h2>
+            <p class="text-xs text-gray-400 dark:text-gray-500 ml-1 mb-5">Drag a favorite board to change its position.</p>
+            <p v-if="favoriteOrderError" role="alert" class="text-sm text-red-600 dark:text-neon-red mb-4">{{ favoriteOrderError }}</p>
+            <draggable
+              v-model="favoriteBoards"
+              item-key="id"
+              :direction="favoriteSortDirection"
+              force-fallback
+              :fallback-tolerance="4"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              ghost-class="sortable-ghost"
+              drag-class="sortable-drag"
+              chosen-class="sortable-chosen"
+              :animation="200"
+              :disabled="savingFavoriteOrder"
+            >
+              <template #item="{ element: board }">
                 <NuxtLink
-                  v-for="board in favoriteBoards"
                   :key="board.id"
                   :to="`/boards/${board.id}`"
-                  class="group relative bg-white dark:bg-surface-card rounded-3xl shadow-sm dark:shadow-xl border border-gray-200 dark:border-surface-border p-8 hover:border-neon-cyan/40 dark:hover:border-neon-cyan/30 transition-all hover:-translate-y-1 hover:shadow-2xl dark:hover:shadow-neon-cyan/10 flex flex-col min-h-[220px]"
+                  class="group relative bg-white dark:bg-surface-card rounded-3xl shadow-sm dark:shadow-xl border border-gray-200 dark:border-surface-border p-8 hover:border-neon-cyan/40 dark:hover:border-neon-cyan/30 transition-all hover:-translate-y-1 hover:shadow-2xl dark:hover:shadow-neon-cyan/10 flex flex-col min-h-[220px] cursor-grab active:cursor-grabbing"
                 >
+                  <span class="favorite-drag-handle absolute top-4 right-4 cursor-grab text-lg leading-none text-gray-400 hover:text-neon-cyan active:cursor-grabbing" :aria-label="`Drag ${board.name} to reorder favorites`" title="Drag to reorder">⠿</span>
                   <div v-if="board.lastActivityAt && (!board.lastVisitedAt || new Date(board.lastActivityAt) > new Date(board.lastVisitedAt))" class="absolute top-4 left-4">
                     <span class="flex h-3 w-3 rounded-full bg-neon-cyan shadow-[0_0_8px_rgba(0,240,255,0.6)] animate-pulse"></span>
                   </div>
@@ -244,7 +286,8 @@ function onDelete(board: any) {
                     <span class="text-xs opacity-0 group-hover:opacity-100 transition-opacity text-neon-cyan">Open →</span>
                   </div>
                 </NuxtLink>
-            </div>
+              </template>
+            </draggable>
         </div>
 
         <div>
