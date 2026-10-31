@@ -11,24 +11,24 @@ const emit = defineEmits(['close'])
 const { public: { siteName } } = useRuntimeConfig()
 const copied = ref(false)
 
-const toolDescriptions: Record<string, string> = {
-  'list-tasks': 'Discover open tasks (filter by status/priority/limit — `todo` limited to 10 by default)',
-  'get-task': 'Read full details of a single task',
-  'get-comments': 'Read all comments on a task',
-  'accept-task': 'Claim a task — assigns you and sets `in_progress`',
-  'add-comment': 'Post progress notes / questions on a task',
-  'update-task-status': 'Move a task between columns',
-  'submit-for-review': 'Mark a task ready for human review',
-  'request-corrections': 'Create a linked correction task off a reviewed task',
-  'reject-task': 'Reject a task review and move it back to todo (AI review)',
-  'create-task': 'File a new task on the board',
-  'delete-task': 'Remove a task (use sparingly)',
-  'generate-changelog': 'Generate a markdown changelog based on completed (done) tasks',
-  'list-plans': 'Discover available task plans (templates)',
-  'apply-plan': 'Apply a task plan to this board',
-  'create-board': 'Create a new board (requires account token or board owner context)',
-  'get-installation-instructions': 'Get instructions for installing/setting up Moo Tasks'
-}
+const toolNames = [
+  'list-tasks',
+  'get-task',
+  'get-comments',
+  'accept-task',
+  'add-comment',
+  'update-task-status',
+  'submit-for-review',
+  'request-corrections',
+  'reject-task',
+  'create-task',
+  'delete-task',
+  'generate-changelog',
+  'list-plans',
+  'apply-plan',
+  'create-board',
+  'get-installation-instructions'
+] as const
 
 const resourcePrompts: Record<string, string> = {
   'board-state': '`moo-tasks://<boardId>/board-state` — full board snapshot',
@@ -41,18 +41,14 @@ const markdown = computed(() => {
   const boardId = props.board.id
   const enabledFunctions = (props.board.mcpEnabledFunctions as Record<string, boolean>) || {}
   
-  const enabledTools = Object.keys(toolDescriptions).filter(tool => enabledFunctions[tool] !== false)
+  const enabledTools = toolNames.filter(tool => enabledFunctions[tool] !== false)
   const enabledResources = Object.keys(resourcePrompts).filter(res => enabledFunctions[res] !== false)
 
-  let toolsTable = 'Note: The MCP server dynamically checks your board\'s `mcpEnabledFunctions` configuration when you invoke these tools. If a tool is disabled in the board settings, the agent will receive a "Tool disabled" error if it attempts to invoke it.\n\n| Tool                  | Purpose                                               |\n'
-  toolsTable += '|-----------------------|-------------------------------------------------------|\n'
-  enabledTools.forEach(tool => {
-    toolsTable += `| \`${tool}\` | ${toolDescriptions[tool]} |\n`
-  })
+  const toolsList = enabledTools.map(tool => `\`${tool}\``).join(', ')
 
   let resourcesSection = ''
   if (enabledResources.length > 0) {
-    resourcesSection = '\nPlus resources/prompts:\n\n'
+    resourcesSection = '\n## Board resources and prompts\n\n'
     enabledResources.forEach(res => {
       resourcesSection += `- ${resourcePrompts[res].replace('<boardId>', boardId)}\n`
     })
@@ -60,42 +56,13 @@ const markdown = computed(() => {
 
   const tokenPlaceholder = '<your-bearer-token>'
 
-  return `# AGENTS.md
+  return `# Moo Tasks
 
-> Drop this file into the root of any project that uses a **Moo Tasks** board as
-> its task queue. It tells AI coding agents (Junie, Claude Code, Cursor, Copilot,
-> Codex, Aider, etc.) how to discover, accept, and complete work for this
-> repository through the board's MCP server.
+Use this board for tasks you were asked to work on. Follow repository guidance as well as any board-specific instructions.
 
----
+## Connect
 
-## 1. What is the Moo Tasks board?
-
-Moo Tasks is a kanban board that exposes each board as its own
-[Model Context Protocol](https://modelcontextprotocol.io/specification/2025-11-25)
-(MCP) server. The endpoint is **scoped to a single board** — an agent connected
-to one board can never see or modify tasks on any other board.
-
-Each task on the board has two identifiers:
-- **ID**: A unique, permanent string ID (e.g., \`A86rlBBUBe3f\`) used in tool calls.
-- **Board Task ID**: A sequential numeric ID specific to the board (e.g., \`1\`, \`2\`). Use this for easier reference in conversation.
-
-- **Endpoint URL:** \`${origin}/api/boards/${boardId}/mcp\`
-- **Global Endpoint:** \`${origin}/api/mcp\` (requires account token)
-- **Transport:** \`streamable-http\`
-- **Authorization Flow:** All requests must include the \`Authorization\` header.
-  Use the format: \`Authorization: Bearer <your-bearer-token>\` (per
-  [MCP basic spec](https://modelcontextprotocol.io/specification/2025-11-25/basic))
-
-> ⚠️ Tokens via \`?token=\` query string are **not supported**. Always use the
-> \`Authorization\` header.
-
----
-
-## 2. Connecting your agent
-
-On the board page, click **Show MCP Config → 📋 Copy JSON**. Paste the snippet
-into your MCP client's config:
+Configure the MCP server with the board's URL and bearer token:
 
 \`\`\`json
 {
@@ -111,91 +78,21 @@ into your MCP client's config:
 }
 \`\`\`
 
-Common locations:
+Keep the bearer token secret; pass it in the \`Authorization\` header, never in the URL.
 
- Client       | Path                            |
---------------|---------------------------------|
- Claude Code  | \`~/.claude.json\` or project \`.mcp.json\` |
- Cursor       | \`.cursor/mcp.json\`              |
- VS Code      | \`.vscode/mcp.json\`              |
- JetBrains    | Settings → Tools → MCP Servers  |
- Junie        | Settings → MCP Servers          |
+## Board tools
 
----
+Only the tools listed here are enabled: ${toolsList || 'none'}.
+${resourcesSection}
+## Workflow
 
-## 3. Available MCP tools
+1. If available, read the board-specific instructions and task-workflow prompt before starting.
+2. Find an unclaimed \`todo\` task with \`list-tasks\`; prioritize critical/high tasks. Read it with \`get-task\` and check its comments with \`get-comments\` (\`todo\` lists return up to 10 by default).
+3. If the task is unclear, ask via \`add-comment\` and leave it in \`todo\`. Otherwise, claim it with \`accept-task\` using a stable \`agentName\` before editing. Don't take a task already claimed by someone else.
+4. Follow repository instructions while working. Comment on blockers or important decisions.
+5. Add a concise **Task Result** comment and call \`submit-for-review\` when finished. Do not move your task directly to \`done\`; reviewers handle that.
 
-Once connected, the following tools are available (subject to per-board toggles in board settings).
-
-${toolsTable}${resourcesSection}
----
-
-## 4. Recommended workflow for agents
-
-When a human asks you to "work on the board" (or whenever you have idle
-capacity on this project), follow this loop:
-
-1. **Read instructions first.** Fetch the
-   \`moo-tasks://${boardId}/agent-instructions\` resource and the \`task-workflow\`
-   prompt — these may contain project-specific rules that override this file.
-2. **Discover work.** Call \`list-tasks\` (filter \`status=todo\`, sort by priority)
-   to find unclaimed tasks. Note: \`todo\` results are limited to 10 by default; 
-   explicitly use the \`limit\` parameter to retrieve more tasks if needed. If AI review is enabled, you can 
-   also filter by \`status=review\` to find tasks that need verification.
-3. **Pick one task.** Prefer \`critical\` > \`high\` > \`medium\` > \`low\`. Read the
-   full task with \`get-task\` and any prior \`get-comments\`.
-4. **Accept it.** Call \`accept-task\` with a stable, unique \`agentName\` (e.g. \`"<model>-<handle>"\`). This locks the task to
-   you and moves it to \`in_progress\`. This helps humans and other agents identify who is working on the task.
-5. **Work in this repository.** Make the code changes the task describes, or 
-   if you are reviewing, verify the implementation.
-6. **Communicate.** Use \`add-comment\` for non-trivial decisions, blockers,
-   or questions. Comments are visible to humans on the board in real time.
-7. **Submit for review.** When done, comment a summary of your changes as a "Task Result" in markdown, then call \`submit-for-review\` with the task ID. 
-   If you were reviewing, call \`update-task-status\` to move it to \`done\` if it passes, 
-   or \`reject-task\` if it fails.
-   Do **not** mark tasks \`done\` yourself unless you are reviewing another agent's task — humans (or a reviewer agent) move
-   tasks from \`review\` to \`done\` after verifying.
-8. **Handle corrections.** If a human creates a correction task linked to your
-   original (parent) task, treat it as a new top-priority item: accept it,
-   address the feedback, and submit it for review.
-
-### Rules of thumb
-
-- ✅ Always \`accept-task\` **before** writing code, so humans see who's working.
-- ✅ **Always check for comments** before starting work; they often contain
-  crucial context, constraints, or previous discussions.
-- ✅ One task at a time per agent identity.
-- ✅ If a task is unclear, leave a comment asking for clarification rather than
-  guessing — and leave the task in \`todo\` (don't accept it yet).
-- ❌ Don't \`delete-task\` unless explicitly told to.
-- ❌ Don't move tasks straight to \`done\` — always go through \`review\`.
-- ❌ Don't try to access tasks from other boards; this token only works for
-   the single board it was issued for.
-
-### Self-Sustaining Loop (TDD & Automation)
-
-To ensure continuous project improvement, follow this loop when no tasks are assigned or the board is empty:
-
-1. **Discovery:** If \`list-tasks\` returns zero \`todo\` tasks, run the discovery script: \`node scripts/discover-gaps.mjs\`. This script analyzes the codebase and identifies gaps in tests, documentation, or features.
-2. **Generation:** Create new discrete tasks using the \`create-task\` tool based on the findings from the discovery script. Each task should focus on one of the following areas:
-   - **Test implementation:** Unit, integration, or E2E tests for existing or new logic.
-   - **Performance & Fuzzing:** Add benchmarks or fuzz tests to stress-test critical components.
-   - **Security:** Audit sensitive areas (auth, DB access) and add security-focused tests.
-   - **Refactoring:** Identify technical debt and propose refactoring tasks with a focus on TDD.
-3. **TDD Best Practices:** When creating tasks, structure them to follow TDD (red-green-refactor). Start by defining a reproduction script or a failing test case that demonstrates the need for the change.
-4. **Maintenance:** Periodically review \`done\` tasks and run \`generate-changelog\` to keep documentation up to date.
-
----
-
-## 5. Security notes for humans
-
-- Treat the bearer token like a password. Anyone with it can act as an agent
-  on your board.
-- Rotate tokens from the board settings drawer if a token leaks; revocation
-  is instant.
-- Prefer per-agent or per-environment tokens if your deployment supports it.
-- Public boards (\`mcpPublic = true\`) skip auth entirely and should only be
-  used for read-only demos.
+If explicitly asked to review a task, use \`update-task-status\` to move a passing task to \`done\`, or \`reject-task\` with a reason if it fails. Don't create or pick up extra tasks just because the board is empty.
 `
 })
 
