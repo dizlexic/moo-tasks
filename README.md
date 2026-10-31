@@ -75,31 +75,34 @@
 
 ## 🚀 Quick Start
 
-The fastest way to get started with Moo Tasks is using Docker.
+The quickest way to run a local instance is Docker Compose. This starts the app, MySQL, and development-only Adminer and Mailpit services.
 
-### 🐳 Running with Docker (Recommended)
+### 🐳 Run locally with Docker Compose
 
-If you have Docker installed, you can start the application, MySQL database, Adminer, and Mailpit with one command. First create a `.env` file from `.env.example` and set `NUXT_SESSION_PASSWORD` (at least 32 characters long). Then run:
+Prerequisites: [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with the Compose v2 plugin.
 
 ```bash
-docker-compose up -d
+git clone https://github.com/dizlexic/moo-agent-board.git
+cd moo-agent-board
+cp .env.example .env
 ```
-or
+
+Before starting, edit `.env` and replace `NUXT_SESSION_PASSWORD`, `DB_ROOT_PASSWORD`, and `DB_PASSWORD` with unique secrets. Generate a secret with `openssl rand -hex 32`; use a different value for each password. The session password must be at least 32 characters. The example database credentials are for local development only—never expose them to the internet.
+
+Start the stack:
+
 ```bash
-docker compose up -d
+docker compose up --build -d
+docker compose logs -f app
 ```
-The application will be available at `http://localhost:3000`, Adminer at `http://localhost:8080`, and the Mailpit inbox at `http://localhost:8025`. Adminer connects to the database host `db`; log in with `DB_USER` and `DB_PASSWORD` from `.env`. The app sends email to Mailpit by default, so test messages are captured locally. These supporting web tools are intended for development; set `ADMINER_PORT`, `MAILPIT_UI_PORT`, and `MAILPIT_SMTP_PORT` in `.env` to change their published ports.
 
+The app is at `http://localhost:3000`. Register an account to create your first board. The container waits for MySQL and runs database migrations on startup; the first start can take a few minutes. Adminer (`http://localhost:8080`) and the Mailpit inbox (`http://localhost:8025`) are for local development only. To log into Adminer, select MySQL, use `db` as the server, and enter `DB_USER` and `DB_PASSWORD` from `.env`. Mailpit captures outgoing messages so you can inspect them without sending real email.
 
-### 🛠️ Manual Development Setup
+MySQL data is stored in the `db-data` Docker volume. `docker compose down` stops the services without removing data; **`docker compose down -v` deletes the database volume and all its data.**
 
-If you prefer to run locally without Docker:
+### 🛠️ Run the app from source
 
-1.  **Prerequisites**: Ensure you have [Mysql 8](https://dev.mysql.com/doc/relnotes/mysql/8.0/en/), [Node.js](https://nodejs.org/) (v22+) and [npm](https://www.npmjs.com/) installed.
-2.  **Install dependencies**: `npm install`
-3.  **Environment Variables**: Create a `.env` file from `.env.example` and set `NUXT_SESSION_PASSWORD` (at least 32 characters long).
-4.  **SMTP for local development**: If using the Docker Mailpit service, set `SMTP_HOST=localhost` in `.env` when running the app outside Docker. The default `SMTP_HOST=mailpit` is for the app container.
-5.  **Start development server**: `npm run dev`
+For development, install Node.js `v26.13.0` (see `.nvmrc`), npm, and MySQL 8. Copy `.env.example` to `.env`, configure the database connection and a 32-character-or-longer `NUXT_SESSION_PASSWORD`, then install dependencies with `npm ci`. Set `DATABASE_URL` to your MySQL connection string; `npm run db:migrate` applies migrations, and `npm run dev` starts the app. If using the Compose Mailpit service from your host, set `SMTP_HOST=localhost` and `SMTP_PORT` to `MAILPIT_SMTP_PORT` (default `1025`).
 
 ## 📖 Usage Guide
 
@@ -116,21 +119,23 @@ Get up and running in just a few minutes:
 
 ## ⚙️ Environment Variables
 
-Copy `.env.example` to `.env` and adjust as needed:
+Copy `.env.example` to `.env` and adjust for your environment. Compose supplies its own internal database URL and uses the `db` service name; when running the app directly on your host, use `localhost` and the published database port instead.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HOST` | `0.0.0.0` | Server bind address |
+| `BASE_URL` | `http://localhost:3000` | Public app URL used in verification, password-reset, and invitation emails |
+| `HOST` | `localhost` in the example; Compose uses `0.0.0.0` | Server bind address |
 | `PORT` | `3000` | Server port |
-| `DB_ROOT_PASSWORD` | `password` | MySQL root password for the Compose database |
-| `DB_USER` | `mootasks` | MySQL user |
-| `DB_PASSWORD` | `password` | MySQL password |
+| `DB_ROOT_PASSWORD` | `password` | MySQL root password for the Compose database; replace before deployment |
+| `DB_USER` | `mootasks` | MySQL application user |
+| `DB_PASSWORD` | `password` | MySQL application password; replace before deployment |
 | `DB_NAME` | `mootasks` | MySQL database name |
 | `DB_HOST` | `localhost` | MySQL host for local development; Compose connects to `db` internally |
 | `DB_PORT` | `3306` | MySQL connection port for local development; Compose uses internal port `3306` |
 | `DB_LOCAL_PORT` | `3307` | Host port published by Compose for MySQL |
-| `DATABASE_URL` | *(unset)* | MySQL connection string; required by `npm run db:migrate`, and takes precedence over individual settings for the app |
-| `NUXT_SESSION_PASSWORD` | *(required)* | 32+ char secret for sealed cookie sessions |
+| `DATABASE_URL` | *(unset)* | MySQL connection string; required for migrations and takes precedence over individual database settings |
+| `DB_SSL` | *(unset)* | Set to `REQUIRED` to enable TLS when connecting with individual database settings |
+| `NUXT_SESSION_PASSWORD` | *(required)* | Unique secret of at least 32 characters for session cookies |
 | `SMTP_HOST` | `mailpit` | SMTP server; use `localhost` when running the app directly on the host |
 | `SMTP_PORT` | `1025` | SMTP server port |
 | `SMTP_USER` / `SMTP_PASSWORD` | *(empty)* | SMTP credentials; not needed for Mailpit |
@@ -139,7 +144,7 @@ Copy `.env.example` to `.env` and adjust as needed:
 | `MAILPIT_UI_PORT` | `8025` | Host port published for the Mailpit inbox |
 | `MAILPIT_SMTP_PORT` | `1025` | Host port published for Mailpit SMTP |
 
-When running the app on the host against the Compose database, use `DB_HOST=localhost` and set `DB_PORT` to the `DB_LOCAL_PORT` value (default `3307`).
+When running the app on the host against the Compose database, use `DB_HOST=localhost` and set `DB_PORT` to `DB_LOCAL_PORT` (default `3307`). Set `BASE_URL` to the public origin and configure a real SMTP provider before sending email from a deployed instance. See [Self-hosting and production setup](docs/self-hosting.md) before exposing an instance to the internet.
 
 ---
 
@@ -364,118 +369,9 @@ Add to your client's MCP config (e.g. `.vscode/mcp.json` or JetBrains MCP settin
 
 ---
 
-## 🐳 Docker
+## ☁️ Deploy your own instance
 
-### Build & Run
-
-```bash
-# Build
-docker build -t moo-tasks .
-
-# Run
-docker run -p 3000:3000 \
-  -e NUXT_SESSION_PASSWORD="your-secret" \
-  -e DATABASE_URL="mysql://user:pass@host:3306/db" \
-  moo-tasks
-```
-
----
-
-## ☁️ Deploy to DigitalOcean App Platform
-
-<details>
-<summary><strong>Prerequisites</strong></summary>
-
-- A [DigitalOcean](https://www.digitalocean.com/) account
-- Your repo pushed to GitHub
-- A [DigitalOcean API token](https://cloud.digitalocean.com/account/api/tokens)
-
-</details>
-
-<details>
-<summary><strong>Option 1: One-Click via App Spec</strong></summary>
-
-1. Fork/push this repo to GitHub
-2. Go to [DigitalOcean App Platform](https://cloud.digitalocean.com/apps) → **Create App**
-3. Connect your GitHub repo and select the `main` branch
-4. DigitalOcean will auto-detect the `Dockerfile` — confirm the settings
-5. Under **Environment Variables**, add these secrets:
-   - `NUXT_SESSION_PASSWORD` — 32+ character secret for session encryption
-   - `DATABASE_URL` — Your MySQL connection string
-6. Deploy!
-
-> **Note:** MySQL is recommended for production as it allows you to increase `instance_count` to handle more traffic.
-
-</details>
-
-<details>
-<summary><strong>Option 2: Deploy with doctl</strong></summary>
-
-```bash
-# Install doctl and authenticate
-doctl auth init
-
-# Create the app from the spec (update repo in .do/app.yaml first)
-doctl apps create --spec .do/app.yaml
-
-# Set secrets
-doctl apps update <app-id> --spec .do/app.yaml
-```
-
-</details>
-
-<details>
-<summary><strong>Option 3: CI/CD with GitHub Actions</strong></summary>
-
-The included workflow at `.github/workflows/deploy.yml` automatically:
-- **On pull requests** — builds and validates the project
-- **On push to main** — builds, then deploys to DigitalOcean App Platform
-
-**Setup:**
-
-1. Create the app on DigitalOcean first (Option 1 or 2)
-2. Generate a [DigitalOcean API token](https://cloud.digitalocean.com/account/api/tokens)
-3. Add it as a GitHub repository secret:
-   - Go to **Settings → Secrets and variables → Actions**
-   - Add `DIGITALOCEAN_ACCESS_TOKEN` with your DO API token
-4. Push to `main` — the workflow will deploy automatically
-
-</details>
-
-<details>
-<summary><strong>App Spec Reference</strong></summary>
-
-The `.do/app.yaml` file defines the full app configuration:
-
-```yaml
-name: moo-tasks
-
-services:
-  - name: web
-    dockerfile_path: Dockerfile
-    github:
-      branch: main
-      deploy_on_push: true
-    http_port: 3000
-    instance_count: 1
-    instance_size_slug: apps-s-1vcpu-1gb
-    envs:
-      - key: NUXT_SESSION_PASSWORD
-        type: SECRET
-      - key: DATABASE_URL
-        type: SECRET
-```
-
-</details>
-
-<details>
-<summary><strong>Troubleshooting</strong></summary>
-
-- **"Only board owners can invite users" or missing boards after creation:** Ensure `DATABASE_URL` is correctly configured and the MySQL server is accessible from the app.
-- **Scalability:** Unlike SQLite, you can increase `instance_count` to handle more traffic, as all instances share the same MySQL database.
-- **Session Reset:** If the database is reset but your browser still has a session cookie, the app will automatically log you out. Simply register again to start fresh.
-
-</details>
+The Compose stack above is for local use, not production: it publishes development tools and uses a local database volume. For a production checklist covering hosting, secrets, database, email, and migrations, see [Self-hosting and production setup](docs/self-hosting.md). A DigitalOcean App Platform example is available in [`.do/app.yaml`](.do/app.yaml); the GitHub Actions workflow only builds the project and does not deploy it.
 
 ---
 
