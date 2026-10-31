@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { sendEmail, resetTransporter } from '../mailer';
+import { sendEmail, resetTransporter } from '../../server/utils/mailer';
 import nodemailer from 'nodemailer';
 
 vi.mock('nodemailer');

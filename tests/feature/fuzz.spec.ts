@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
-import { generateId } from '../id'
-import { slugify } from '../slug'
+import { generateId } from '../../server/utils/id'
+import { slugify } from '../../server/utils/slug'
 
 describe('utility functions fuzz testing', () => {
   it('generateId should always return a string of requested length', () => {

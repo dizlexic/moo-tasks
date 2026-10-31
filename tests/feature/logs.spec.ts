@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { logBoardEvent } from '../logs'
-import { db } from '../../db'
-import { boardLogs, boards } from '../../db/schema'
+import { logBoardEvent } from '../../server/utils/logs'
+import { db } from '../../server/db'
+import { boardLogs, boards } from '../../server/db/schema'
 
-vi.mock('../../db', () => ({
+vi.mock('../../server/db', () => ({
   db: {
     insert: vi.fn(),
     update: vi.fn(),

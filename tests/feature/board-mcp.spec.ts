@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createBoardMcpServer, invalidateBoardMetadata } from '../board-mcp'
-import { db } from '../../db'
+import { createBoardMcpServer, invalidateBoardMetadata } from '../../server/utils/board-mcp'
+import { db } from '../../server/db'
 
-vi.mock('../../db', () => ({
+vi.mock('../../server/db', () => ({
   db: {
     select: vi.fn(),
     insert: vi.fn(),
@@ -12,16 +12,16 @@ vi.mock('../../db', () => ({
   }
 }))
 
-vi.mock('../socket', () => ({
+vi.mock('../../server/utils/socket', () => ({
   emitTaskEvent: vi.fn(),
 }))
 
-vi.mock('../tasks', () => ({
+vi.mock('../../server/utils/tasks', () => ({
   reorderTasks: vi.fn(),
   getNextBoardTaskId: vi.fn(),
 }))
 
-vi.mock('../logs', () => ({
+vi.mock('../../server/utils/logs', () => ({
   logBoardEvent: vi.fn(),
 }))
 
@@ -527,7 +527,7 @@ describe('board-mcp utils', () => {
       expect(detailed.content[0].text).toContain('Initial release')
     })
 
-    it('caches board metadata (micro-benchmark path for repeated creates; after first hit, no DB)', async () => {
+    it('caches board metadata without additional database reads', async () => {
       const mockBoard = {
         id: 'board-cache-test',
         mcpEnabledFunctions: { 'list-tasks': true },
@@ -547,13 +547,10 @@ describe('board-mcp utils', () => {
       await createBoardMcpServer('board-cache-test')
 
       // Subsequent creates should hit cache (no more select mocks needed for this board in this test)
-      const start = Date.now()
       for (let i = 0; i < 50; i++) {
         await createBoardMcpServer('board-cache-test')
       }
-      const dur = Date.now() - start
-      // In real env this demonstrates the win (near-zero cost on hits); invalidate in beforeEach keeps tests clean
-      expect(dur).toBeLessThan(100)
+      expect(db.select).toHaveBeenCalledTimes(2)
     })
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getVerificationEmail, getInvitationEmail, getPasswordResetEmail } from '../email-templates'
+import { getVerificationEmail, getInvitationEmail, getPasswordResetEmail } from '../../server/utils/email-templates'
 
 describe('email templates', () => {
   it('should return a verification email object', () => {

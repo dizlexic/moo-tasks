@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getNextBoardTaskId, reindexTasks, reorderTasks } from '../tasks'
-import { db } from '../../db'
-import { emitTaskEvent } from '../socket'
+import { getNextBoardTaskId, reindexTasks, reorderTasks } from '../../server/utils/tasks'
+import { db } from '../../server/db'
+import { emitTaskEvent } from '../../server/utils/socket'
 
-vi.mock('../../db', () => ({
+vi.mock('../../server/db', () => ({
   db: {
     select: vi.fn(),
     update: vi.fn(),
   }
 }))
 
-vi.mock('../socket', () => ({
+vi.mock('../../server/utils/socket', () => ({
   emitTaskEvent: vi.fn(),
 }))
 

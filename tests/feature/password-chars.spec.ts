@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hashPassword, comparePasswords } from '../../utils/password'
+import { hashPassword, comparePasswords } from '../../server/utils/password'
 
 describe('Password Characters', () => {
   const passwords = [

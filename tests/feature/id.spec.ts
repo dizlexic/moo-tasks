@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateId } from '../id'
+import { generateId } from '../../server/utils/id'
 
 describe('id utils', () => {
   it('should generate an ID of default size (12)', () => {

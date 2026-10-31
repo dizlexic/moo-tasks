@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { hashPassword, comparePasswords } from '../../utils/password'
+import { hashPassword, comparePasswords } from '../../server/utils/password'
 
 describe('Auth Reproduction', () => {
   it('should work with same normalization as API', async () => {

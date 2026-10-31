@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createGlobalMcpServer } from '../global-mcp'
-import { db } from '../../db'
+import { createGlobalMcpServer } from '../../server/utils/global-mcp'
+import { db } from '../../server/db'
 
-vi.mock('../../db', () => ({
+vi.mock('../../server/db', () => ({
   db: {
     insert: vi.fn(),
   }
 }))
 
-vi.mock('../id', () => ({
+vi.mock('../../server/utils/id', () => ({
   generateId: vi.fn().mockReturnValue('mocked-id'),
 }))
 
-vi.mock('../logs', () => ({
+vi.mock('../../server/utils/logs', () => ({
   logBoardEvent: vi.fn(),
 }))
 
@@ -21,7 +21,7 @@ vi.mock('nanoid', () => ({
 }))
 
 // Mock schema imports dynamically if needed, but since we mock db, we might just mock the return values
-vi.mock('../../db/schema', () => ({
+vi.mock('../../server/db/schema', () => ({
   boards: {},
   boardColumns: {}
 }))

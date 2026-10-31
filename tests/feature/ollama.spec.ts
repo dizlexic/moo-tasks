@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { generateResponse } from '../ollama'
+import { generateResponse } from '../../server/utils/ollama'
 
 // Mock the global fetch
 const mockFetch = vi.fn()

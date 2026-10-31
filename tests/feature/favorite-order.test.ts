@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeFavoriteBoardOrder } from '../server/utils/favorite-order'
+import { normalizeFavoriteBoardOrder } from '../../server/utils/favorite-order'
 
 describe('normalizeFavoriteBoardOrder', () => {
   const favoriteBoardIds = ['board-a', 'board-b', 'board-c']

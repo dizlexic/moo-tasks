@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createEmailVerificationToken, createPasswordResetToken } from '../auth'
-import { db } from '../../db'
+import { createEmailVerificationToken, createPasswordResetToken } from '../../server/utils/auth'
+import { db } from '../../server/db'
 
-vi.mock('../../db', () => ({
+vi.mock('../../server/db', () => ({
   db: {
     insert: vi.fn(),
   }
