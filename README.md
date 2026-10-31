@@ -383,7 +383,7 @@ The Compose stack above is for local use, not production: it publishes developme
 | **Tailwind CSS v4** | Styling |
 | **MySQL** + Drizzle ORM | Database |
 | **nuxt-auth-utils** | Auth (sealed cookie sessions, scrypt hashing) |
-| **@nuxtjs/mcp-toolkit** | MCP server integration |
+| **@modelcontextprotocol/sdk** | MCP server integration |
 | **vuedraggable** | Drag & drop |
 | **nanoid** | ID generation |
 
