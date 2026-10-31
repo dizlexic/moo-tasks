@@ -102,6 +102,67 @@ describe('board-mcp utils', () => {
       expect(parsedResult.error).toBe('Status not found or not viewable')
     })
 
+    it('should allow listing backlog tasks when the backlog column is viewable', async () => {
+      const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'list-tasks': true } }
+      const mockColumns = [{ status: 'backlog', permissions: { view: true } }]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('board-1')
+      const listTasksHandler = server._registeredTools['list-tasks'].handler
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'backlog' }]),
+      })
+
+      const result = await listTasksHandler({ status: 'backlog' })
+
+      expect(JSON.parse(result.content[0].text).tasks).toEqual([{ id: 'task-1', status: 'backlog' }])
+    })
+
+    it('should deny getting a task when its column is not viewable', async () => {
+      const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'get-task': true } }
+      const mockColumns = [{ status: 'backlog', permissions: { view: false } }]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('board-1')
+      const getTaskHandler = server._registeredTools['get-task'].handler
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'backlog' }]),
+      })
+
+      const result = await getTaskHandler({ taskId: 'task-1' })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.parse(result.content[0].text).error).toBe('Permission denied')
+    })
+
+    it('should deny submitting a task for review when its column does not allow moves', async () => {
+      const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'submit-for-review': true } }
+      const mockColumns = [
+        { status: 'backlog', permissions: { view: true, move: false } },
+        { status: 'review', permissions: { view: true, move: true } },
+      ]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('board-1')
+      const submitHandler = server._registeredTools['submit-for-review'].handler
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'backlog' }]),
+      })
+
+      const result = await submitHandler({ taskId: 'task-1' })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.parse(result.content[0].text).error).toBe('Permission denied')
+      expect(db.update).not.toHaveBeenCalled()
+    })
+
     it('supports limit + offset pagination in list-tasks (DB-backed, exercises limit/offset path)', async () => {
       const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'list-tasks': true }, allowAiReview: false }
       const mockColumns = [{ status: 'todo', permissions: { view: true } }]
@@ -127,7 +188,7 @@ describe('board-mcp utils', () => {
 
     it('should create a task when create-task is called', async () => {
        const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'create-task': true } }
-       const mockColumns = [{ status: 'backlog', permissions: { add: true } }]
+       const mockColumns = [{ status: 'backlog', permissions: { view: true } }]
        
        ;(db.select as any).mockReturnValueOnce({
          from: vi.fn().mockReturnThis(),
@@ -192,7 +253,10 @@ describe('board-mcp utils', () => {
 
     it('should accept a task when accept-task is called', async () => {
       const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'accept-task': true } }
-      const mockColumns = [{ status: 'todo', permissions: { move: true } }]
+      const mockColumns = [
+        { status: 'todo', permissions: { move: true } },
+        { status: 'in_progress', permissions: { move: true } },
+      ]
       
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
@@ -287,7 +351,10 @@ describe('board-mcp utils', () => {
 
     it('should return board state when board-state resource is read', async () => {
       const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'board-state': true } }
-      const mockColumns = []
+      const mockColumns = [
+        { status: 'todo', permissions: { view: true } },
+        { status: 'done', permissions: { view: true } },
+      ]
       
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
@@ -316,6 +383,76 @@ describe('board-mcp utils', () => {
       expect(parsedContent.totalTasks).toBe(2)
       expect(parsedContent.columns.todo).toHaveLength(1)
       expect(parsedContent.columns.done).toHaveLength(1)
+    })
+
+    it('should only include viewable tasks in board state', async () => {
+      const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'board-state': true } }
+      const mockColumns = [
+        { status: 'backlog', permissions: { view: false } },
+        { status: 'todo', permissions: { view: true } },
+      ]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('board-1')
+      const boardStateResource = server._registeredResources['moo-tasks://board-1/board-state']
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([
+          { id: 'task-1', status: 'backlog' },
+          { id: 'task-2', status: 'todo' },
+        ]),
+      })
+
+      const result = await boardStateResource.readCallback(new URL('moo-tasks://board-1/board-state'))
+      const parsedContent = JSON.parse(result.contents[0].text)
+
+      expect(parsedContent.totalTasks).toBe(1)
+      expect(parsedContent.counts.backlog).toBe(0)
+      expect(parsedContent.columns.backlog).toHaveLength(0)
+      expect(parsedContent.columns.todo).toHaveLength(1)
+    })
+
+    it('should deny reading or adding comments to tasks in hidden columns', async () => {
+      const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'add-comment': true, 'get-comments': true } }
+      const mockColumns = [{ status: 'backlog', permissions: { view: false } }]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('board-1')
+      const addCommentHandler = server._registeredTools['add-comment'].handler
+      const getCommentsHandler = server._registeredTools['get-comments'].handler
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'backlog' }]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'backlog' }]),
+      })
+
+      const addResult = await addCommentHandler({ taskId: 'task-1', author: 'Agent', content: 'Comment' })
+      const getResult = await getCommentsHandler({ taskId: 'task-1' })
+
+      expect(addResult.isError).toBe(true)
+      expect(getResult.isError).toBe(true)
+      expect(db.insert).not.toHaveBeenCalled()
+    })
+
+    it('should deny applying a plan when the Todo column does not allow additions', async () => {
+      const mockBoard = { id: 'board-1', ownerId: 'owner-1', mcpEnabledFunctions: { 'apply-plan': true } }
+      const mockColumns = [{ status: 'todo', permissions: { add: false } }]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('board-1')
+      const applyPlanHandler = server._registeredTools['apply-plan'].handler
+
+      const result = await applyPlanHandler({ planId: 'plan-1' })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.parse(result.content[0].text).error).toBe('Permission denied')
+      expect(db.select).toHaveBeenCalledTimes(2)
+      expect(db.transaction).not.toHaveBeenCalled()
     })
 
     it('should return task workflow prompt', async () => {
@@ -350,7 +487,7 @@ describe('board-mcp utils', () => {
         mcpEnabledFunctions: { 'generate-changelog': true },
         allowAiReview: false,
       }
-      const mockColumns = []
+      const mockColumns = [{ status: 'done', permissions: { view: true } }]
 
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
