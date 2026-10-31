@@ -154,7 +154,7 @@ The board acts as the primary task list for this application. To programmaticall
 
 | Mode | Description |
 |------|-------------|
-| 🔒 **Private** (Default) | Requires a Bearer Token via the `token` query parameter |
+| 🔒 **Private** (Default) | Requires a token in the `Authorization: Bearer <token>` HTTP header |
 | 🌐 **Public** | Allows access without a token (for local development) |
 
 Tokens can be **generated**, **rotated**, or **revoked** at any time from Board Settings.
