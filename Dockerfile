@@ -1,6 +1,6 @@
 FROM node:26-slim AS base
 
-# Build stage
+# Build
 FROM base AS build
 WORKDIR /app
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
@@ -9,7 +9,7 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# Production stage
+# Production
 FROM base AS production
 WORKDIR /app
 
