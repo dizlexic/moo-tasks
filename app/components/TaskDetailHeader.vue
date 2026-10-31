@@ -33,10 +33,9 @@ async function copyTaskLink() {
 </script>
 
 <template>
-  <div class="p-6 pb-4 border-b border-gray-100 dark:border-surface-border/50 flex items-center justify-between shrink-0">
+  <div class="border-b border-gray-100 dark:border-surface-border/50 flex items-center justify-between shrink-0">
     <div class="flex items-center gap-4">
-      <h2 id="task-detail-title" class="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Task Details</h2>
-      <div class="flex items-center gap-2 text-[12px] font-mono text-gray-400">
+      <div class="flex items-center gap-2 text-[12px] font-mono text-gray-400 content-between flex-grow">
         <span class="cursor-pointer hover:text-neon-cyan" @click="copyToClipboard(task.boardTaskId.toString())" title="Copy Board Task ID">#{{ task.boardTaskId }}</span>
         <span class="cursor-pointer hover:text-neon-cyan" @click="copyToClipboard(task.id)" title="Copy Task ID">{{ task.id }}</span>
       </div>
@@ -46,8 +45,7 @@ async function copyTaskLink() {
         class="text-sm font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border border-gray-200 dark:border-surface-border bg-gray-50 dark:bg-surface-raised text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-neon-cyan dark:hover:text-neon-cyan transition-all flex items-center gap-1.5"
         :aria-label="linkCopied ? 'Link copied' : 'Copy task link'"
       >
-        <span aria-hidden="true">{{ linkCopied ? '✓' : '📋' }}</span>
-        <span>{{ linkCopied ? 'Copied' : 'Copy' }}</span>
+          <Icon name="mdi:chain" />
       </button>
     </div>
     <div class="flex items-center gap-3">

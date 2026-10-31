@@ -62,8 +62,12 @@ const difficultyColors: Record<number, string> = {
         @contextmenu="emit('contextmenu', $event, task)"
     >
         <div class="flex items-center gap-2 mb-1 text-[10px] font-mono text-gray-400 justify-between">
-            <span class="cursor-pointer hover:text-neon-cyan" @click.stop="copyToClipboard($event, task.boardTaskId.toString())">#{{ task.boardTaskId }}</span>
-            <span class="cursor-pointer hover:text-neon-cyan" @click.stop="copyToClipboard($event, task.id)">{{ task.id }}</span>
+            <span class="cursor-pointer hover:text-neon-cyan" @click.stop="copyToClipboard($event, task.boardTaskId.toString())" :title="`Copy Board Task ID: ${task.boardTaskId}`">
+                <Icon name="mdi:pound" size="12" />
+            </span>
+            <span class="cursor-pointer hover:text-neon-cyan" @click.stop="copyToClipboard($event, task.id)" :title="`Copy Task ID: ${task.id}`">
+                <Icon name="mdi:identifier" size="12" />
+            </span>
         </div>
         <div class="flex items-start justify-between gap-2 mb-1">
             <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-snug group-hover:text-black dark:group-hover:text-white transition-colors">{{ task.title }}</h4>
