@@ -141,7 +141,10 @@ Don't rename in place. Expand → migrate → contract:
 - ❌ `ADD COLUMN IF NOT EXISTS` — **not supported** in MySQL. Don't try to
   make migrations idempotent by hand.
 - DDL is **not transactional** in MySQL — a failed multi-statement migration
-  can leave the DB half-applied. Keep migrations small and focused.
+  can leave the DB half-applied. The migration runner cannot make MySQL DDL
+  rollback-atomic by wrapping it in a transaction. Inspect the schema and
+  migration journal before retrying a failed migration, and keep migrations
+  small and focused.
 - `RENAME COLUMN` requires MySQL 8.0+; older servers need `CHANGE COLUMN`.
 
 ---

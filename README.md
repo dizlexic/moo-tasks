@@ -79,7 +79,7 @@ The fastest way to get started with Moo Tasks is using Docker.
 
 ### 🐳 Running with Docker (Recommended)
 
-If you have Docker installed, you can start the entire stack (including the database, Adminer, and Mailpit) with one command. First create a `.env` file from `.env.example` and set `NUXT_SESSION_PASSWORD` (at least 32 characters long). Then run:
+If you have Docker installed, you can start the application, MySQL database, Adminer, and Mailpit with one command. First create a `.env` file from `.env.example` and set `NUXT_SESSION_PASSWORD` (at least 32 characters long). Then run:
 
 ```bash
 docker-compose up -d
@@ -88,7 +88,7 @@ or
 ```bash
 docker compose up -d
 ```
-The application will be available at `http://localhost:3000`.
+The application will be available at `http://localhost:3000`, Adminer at `http://localhost:8080`, and the Mailpit inbox at `http://localhost:8025`. Adminer connects to the database host `db`; log in with `DB_USER` and `DB_PASSWORD` from `.env`. The app sends email to Mailpit by default, so test messages are captured locally. These supporting web tools are intended for development; set `ADMINER_PORT`, `MAILPIT_UI_PORT`, and `MAILPIT_SMTP_PORT` in `.env` to change their published ports.
 
 
 ### 🛠️ Manual Development Setup
@@ -98,7 +98,8 @@ If you prefer to run locally without Docker:
 1.  **Prerequisites**: Ensure you have [Mysql 8](https://dev.mysql.com/doc/relnotes/mysql/8.0/en/), [Node.js](https://nodejs.org/) (v22+) and [npm](https://www.npmjs.com/) installed.
 2.  **Install dependencies**: `npm install`
 3.  **Environment Variables**: Create a `.env` file from `.env.example` and set `NUXT_SESSION_PASSWORD` (at least 32 characters long).
-4.  **Start development server**: `npm run dev`
+4.  **SMTP for local development**: If using the Docker Mailpit service, set `SMTP_HOST=localhost` in `.env` when running the app outside Docker. The default `SMTP_HOST=mailpit` is for the app container.
+5.  **Start development server**: `npm run dev`
 
 ## 📖 Usage Guide
 
@@ -121,12 +122,24 @@ Copy `.env.example` to `.env` and adjust as needed:
 |----------|---------|-------------|
 | `HOST` | `0.0.0.0` | Server bind address |
 | `PORT` | `3000` | Server port |
+| `DB_ROOT_PASSWORD` | `password` | MySQL root password for the Compose database |
 | `DB_USER` | `mootasks` | MySQL user |
-| `DB_PASSWORD` | `mootasks` | MySQL password |
+| `DB_PASSWORD` | `password` | MySQL password |
 | `DB_NAME` | `mootasks` | MySQL database name |
-| `DB_PORT` | `3307` | MySQL local port mapping |
-| `DATABASE_URL` | *(required if not using Docker)* | MySQL connection string |
+| `DB_HOST` | `localhost` | MySQL host for local development; Compose connects to `db` internally |
+| `DB_PORT` | `3306` | MySQL connection port for local development; Compose uses internal port `3306` |
+| `DB_LOCAL_PORT` | `3307` | Host port published by Compose for MySQL |
+| `DATABASE_URL` | *(unset)* | MySQL connection string; required by `npm run db:migrate`, and takes precedence over individual settings for the app |
 | `NUXT_SESSION_PASSWORD` | *(required)* | 32+ char secret for sealed cookie sessions |
+| `SMTP_HOST` | `mailpit` | SMTP server; use `localhost` when running the app directly on the host |
+| `SMTP_PORT` | `1025` | SMTP server port |
+| `SMTP_USER` / `SMTP_PASSWORD` | *(empty)* | SMTP credentials; not needed for Mailpit |
+| `SMTP_FROM` | `noreply@localhost` | Sender address for outgoing email |
+| `ADMINER_PORT` | `8080` | Host port published for Adminer |
+| `MAILPIT_UI_PORT` | `8025` | Host port published for the Mailpit inbox |
+| `MAILPIT_SMTP_PORT` | `1025` | Host port published for Mailpit SMTP |
+
+When running the app on the host against the Compose database, use `DB_HOST=localhost` and set `DB_PORT` to the `DB_LOCAL_PORT` value (default `3307`).
 
 ---
 

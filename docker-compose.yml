@@ -12,13 +12,18 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - HOST=0.0.0.0
-      - DB_HOST=${DB_HOST:-db}
+      - DB_HOST=db
       - DB_PORT=3306
       - DB_SSL=
       - DB_USER=${DB_USER:-mootasks}
       - DB_PASSWORD=${DB_PASSWORD:-password}
       - DB_NAME=${DB_NAME:-mootasks}
-      - DATABASE_URL=mysql://${DB_USER:-mootasks}:${DB_PASSWORD:-password}@${DB_HOST:-db}:3306/${DB_NAME:-mootasks}
+      - DATABASE_URL=mysql://${DB_USER:-mootasks}:${DB_PASSWORD:-password}@db:3306/${DB_NAME:-mootasks}
+      - SMTP_HOST=${SMTP_HOST:-mailpit}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@localhost}
     volumes:
       - ./app:/app/app
       - ./server:/app/server
@@ -52,6 +57,26 @@ services:
       retries: 5
     volumes:
       - db-data:/var/lib/mysql
+    networks:
+      - moo-network
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - moo-network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
     networks:
       - moo-network
 

@@ -175,7 +175,7 @@ the schema consistent and migrations **non-destructive**.
 | Script              | What it does                                                           |
 |---------------------|------------------------------------------------------------------------|
 | `npm run db:generate` | Diff `server/db/schema.ts` vs the latest snapshot → emit a new `drizzle/<NNNN>_*.sql` and update `meta/`. **Use this for every schema change.** |
-| `npm run db:migrate`  | Apply pending migrations (in journal order) inside a transaction. Tracked via `__drizzle_migrations`. |
+| `npm run db:migrate`  | Apply pending migrations in journal order and track them via `__drizzle_migrations`. MySQL DDL is not rollback-atomic; a failed migration can leave partial changes. |
 | `npm run db:push`     | Push schema directly to the DB **without** writing a migration file. ⚠️ Dev-only / scratch DBs — never use against shared, staging, or prod data. |
 | `npm run db:seed`     | Run the seed script.                                                  |
 
