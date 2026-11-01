@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Board } from '../../../server/db/schema'
+import { MCP_CAPABILITIES } from '#shared/mcp-capabilities'
 
 const props = defineProps<{
   board: Board
@@ -11,46 +12,29 @@ const emit = defineEmits(['close'])
 const { public: { siteName } } = useRuntimeConfig()
 const copied = ref(false)
 
-const toolNames = [
-  'list-tasks',
-  'get-task',
-  'get-comments',
-  'accept-task',
-  'add-comment',
-  'update-task-status',
-  'submit-for-review',
-  'request-corrections',
-  'reject-task',
-  'create-task',
-  'delete-task',
-  'generate-changelog',
-  'list-plans',
-  'apply-plan',
-  'create-board',
-  'get-installation-instructions'
-] as const
-
-const resourcePrompts: Record<string, string> = {
-  'board-state': '`moo-tasks://<boardId>/board-state` — full board snapshot',
-  'agent-instructions': '`moo-tasks://<boardId>/agent-instructions` — board-specific guidance',
-  'task-workflow': '`task-workflow` — guided workflow for picking up & finishing tasks'
-}
-
 const markdown = computed(() => {
   const origin = import.meta.client ? window.location.origin : 'https://mootasks.dev'
   const boardId = props.board.id
   const enabledFunctions = (props.board.mcpEnabledFunctions as Record<string, boolean>) || {}
   
-  const enabledTools = toolNames.filter(tool => enabledFunctions[tool] !== false)
-  const enabledResources = Object.keys(resourcePrompts).filter(res => enabledFunctions[res] !== false)
+  const enabledCapabilities = MCP_CAPABILITIES.filter(capability =>
+    enabledFunctions[capability.name] !== false &&
+    !(capability.name === 'add-comment-with-attachment' && enabledFunctions['add-comment'] === false) &&
+    !(props.board.mcpPublic && 'access' in capability && capability.access === 'write'),
+  )
+  const enabledTools = enabledCapabilities.filter(capability => capability.kind === 'tool')
+  const enabledResources = enabledCapabilities.filter(capability => capability.kind !== 'tool')
 
-  const toolsList = enabledTools.map(tool => `\`${tool}\``).join(', ')
+  const toolsList = enabledTools.map(tool => `\`${tool.name}\``).join(', ')
 
   let resourcesSection = ''
   if (enabledResources.length > 0) {
     resourcesSection = '\n## Board resources and prompts\n\n'
-    enabledResources.forEach(res => {
-      resourcesSection += `- ${resourcePrompts[res].replace('<boardId>', boardId)}\n`
+    enabledResources.forEach(capability => {
+      const resource = capability.kind === 'resource'
+        ? `\`moo-tasks://${boardId}/${capability.name}\` — ${capability.description}`
+        : `\`${capability.name}\` — ${capability.description}`
+      resourcesSection += `- ${resource}\n`
     })
   }
 
@@ -87,7 +71,7 @@ ${resourcesSection}
 ## Workflow
 
 1. If available, read the board-specific instructions and task-workflow prompt before starting.
-2. Find an unclaimed \`todo\` task with \`list-tasks\`; prioritize critical/high tasks. Read it with \`get-task\` and check its comments with \`get-comments\` (\`todo\` lists return up to 10 by default).
+2. Find an unclaimed \`todo\` task with \`list-tasks\`; prioritize critical/high tasks. Read it with \`get-task\` and check its comments with \`get-comments\` (\`todo\` lists return up to 10 by default). When \`hasMore\` is true, pass \`nextCursor\` to fetch the next page.
 3. If the task is unclear, ask via \`add-comment\` and leave it in \`todo\`. Otherwise, claim it with \`accept-task\` using a stable \`agentName\` before editing. Don't take a task already claimed by someone else.
 4. Follow repository instructions while working. Comment on blockers or important decisions.
 5. Add a concise **Task Result** comment and call \`submit-for-review\` when finished. Do not move your task directly to \`done\`; reviewers handle that.

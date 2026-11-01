@@ -7,6 +7,11 @@ import { generateId } from './id'
 import { emitTaskEvent } from './socket'
 import { reorderTasks, getNextBoardTaskId, getNextBoardTaskIds } from './tasks'
 import { logBoardEvent } from './logs'
+import { createBoardWithDefaultColumns } from './board-creation'
+import { MCP_INSTALLATION_INSTRUCTIONS } from './mcp-shared'
+
+export { MCP_FUNCTIONS } from '#shared/mcp-capabilities'
+export type { McpFunction } from '#shared/mcp-capabilities'
 
 const MCP_MAX_PAGE_SIZE = 100
 const MCP_DEFAULT_PAGE_SIZE = 50
@@ -39,29 +44,6 @@ async function getInstructionContent(boardId: string, type: 'agent_instructions'
   const globalInstr = globalInstrResults[0]
   return globalInstr?.content || ''
 }
-
-export const MCP_FUNCTIONS = [
-  'list-tasks',
-  'get-task',
-  'create-task',
-  'update-task-status',
-  'submit-for-review',
-  'request-corrections',
-  'reject-task',
-  'accept-task',
-  'add-comment',
-  'delete-task',
-  'get-comments',
-  'board-state',
-  'agent-instructions',
-  'task-workflow',
-  'get-installation-instructions',
-  'create-board',
-  'list-plans',
-  'apply-plan',
-] as const
-
-export type McpFunction = typeof MCP_FUNCTIONS[number]
 
 // Bounded process-local LRU for board metadata; changes may take up to 30 seconds to reach each instance.
 const metadataCache = new Map<string, { board: any; columns: any; expires: number }>()
@@ -121,6 +103,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     isError: true,
   })
 
+  const serverConstructionStartedAt = performance.now()
   const server = new McpServer({
     name: `moo-tasks-${boardId}`,
     version: '2.0.0',
@@ -133,7 +116,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
   console.log('Registering tool: list-tasks');
   server.tool(
     'list-tasks',
-    'List task summaries on this board. Use get-task for full details. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',
+    'List task summaries on this board. Use get-task for full details. Results include count, hasMore, and nextCursor; pass nextCursor to continue. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',
     {
       status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done', 'archive']).optional().describe('Filter by task status'),
       priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Filter by task priority'),
@@ -528,7 +511,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
       attachmentName: z.string().max(255).optional().describe('The name of the attachment (maximum 255 characters)'),
     },
     async ({ taskId, author, content, attachmentUrl, attachmentType, attachmentName }) => {
-      if (enabledFunctions['add-comment'] === false) throw new Error('Tool disabled')
+      if (enabledFunctions['add-comment'] === false || enabledFunctions['add-comment-with-attachment'] === false) throw new Error('Tool disabled')
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'add-comment', data: { taskId } })
       const taskResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
@@ -628,7 +611,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
   server.resource(
     'board-state',
     `moo-tasks://${boardId}/board-state`,
-    { description: 'Full snapshot of this board with all tasks grouped by status.', mimeType: 'application/json' },
+    { description: 'JSON fields: totalTasks (visible task count), statusOrder (all statuses), counts (one count per status; zero for hidden or empty statuses), columns (visible samples ordered by order then boardTaskId), and sampleLimit (50).', mimeType: 'application/json' },
     async () => {
       if (enabledFunctions['board-state'] === false) throw new Error('Resource disabled')
 
@@ -669,7 +652,14 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
       }
 
       const totalTasks = Object.values(counts).reduce((total, statusCount) => total + statusCount, 0)
-      return { contents: [{ uri: `moo-tasks://${boardId}/board-state`, mimeType: 'application/json', text: JSON.stringify({ totalTasks, counts, columns: grouped, note: 'Per-column samples capped at 50; use list-tasks with cursor pagination or a status filter for full results.' }) }] }
+      return { contents: [{ uri: `moo-tasks://${boardId}/board-state`, mimeType: 'application/json', text: JSON.stringify({
+        totalTasks,
+        statusOrder: statusNames,
+        counts,
+        columns: grouped,
+        sampleLimit: SAMPLE,
+        note: 'counts contains every status in statusOrder, including zero and non-viewable statuses; columns contains deterministic samples for visible statuses only. Samples are capped at sampleLimit; use list-tasks with nextCursor or a status filter for complete results.',
+      }) }] }
     },
   )
 
@@ -796,37 +786,9 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     async ({ name, description }) => {
       if (enabledFunctions['create-board'] === false) throw new Error('Tool disabled')
 
-      const newBoardId = generateId()
-      const now = new Date()
-      const newBoard = {
-        id: newBoardId,
-        name: name.trim(),
-        description: description?.trim() || null,
-        ownerId: board.ownerId,
-        createdAt: now,
-        updatedAt: now,
-      }
+      const newBoard = await createBoardWithDefaultColumns({ name, description, ownerId: board.ownerId })
 
-      // Wrap board + default columns creation in a tx for atomicity (no half-created boards)
-      await db.transaction(async (tx) => {
-        await tx.insert(boards).values(newBoard)
-        
-        // Also create default columns
-        const columns = ['backlog', 'todo', 'in_progress', 'review', 'done']
-        for (let i = 0; i < columns.length; i++) {
-            await tx.insert(boardColumns).values({
-            id: generateId(),
-            boardId: newBoardId,
-            name: columns[i].charAt(0).toUpperCase() + columns[i].slice(1),
-            status: columns[i] as any,
-            order: i,
-            createdAt: now,
-            updatedAt: now,
-            })
-        }
-      })
-
-      void logBoardEvent({ boardId: newBoardId, type: 'user_action', actor: 'AI Agent', action: 'board:created' })
+      void logBoardEvent({ boardId: newBoard.id, type: 'user_action', actor: 'AI Agent', action: 'board:created' })
       
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Board created successfully', board: newBoard }) }] }
     }
@@ -839,36 +801,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     async () => {
       if (enabledFunctions['get-installation-instructions'] === false) throw new Error('Tool disabled')
 
-      const instructions = `
-# Moo Tasks Installation & Setup
-
-Moo Tasks can be run locally via Docker or used as a hosted service at https://mootasks.dev.
-
-## 1. Cloud Version (mootasks.dev)
-1. Go to https://mootasks.dev and sign up/login.
-2. Create a new board on the dashboard.
-3. In Board Settings, generate an MCP Token.
-4. Use the provided MCP URL and Token in your AI agent's configuration.
-
-## 2. Local Installation (Docker)
-1. Clone the repository: \`git clone https://github.com/dizlexic/moo-agent-board.git\`
-2. Create a \`.env\` file from \`.env.example\`.
-3. Set \`NUXT_SESSION_PASSWORD\` (min 32 chars).
-4. Run \`docker-compose up -d\`.
-5. Access the UI at \`http://localhost:3000\`.
-6. Follow the same steps as the Cloud version to create a board and connect an agent.
-
-## 3. Local Installation (Manual)
-1. Ensure you have Node.js 22+ and MySQL 8+ installed.
-2. Run \`npm install\`.
-3. Configure \`.env\`.
-4. Run migrations: \`npm run db:migrate\`.
-5. Start the server: \`npm run dev\`.
-
-## 4. Connecting an Agent
-Each board provides its own MCP endpoint. Copy the configuration snippet from Board Settings into your agent's config (e.g., \`~/.claude.json\` for Claude Code, or \`.cursor/mcp.json\` for Cursor).
-`;
-      return { content: [{ type: 'text', text: instructions }] }
+      return { content: [{ type: 'text', text: MCP_INSTALLATION_INSTRUCTIONS }] }
     }
   )
 
@@ -957,6 +890,13 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
       return { content: [{ type: 'text', text: JSON.stringify({ message: `Successfully applied plan "${planResult.name}"`, count: pTasks.length }) }] }
     }
   ))
+
+  if (process.env.MCP_PROFILE_SERVER_CONSTRUCTION === 'true') {
+    console.info('[MCP] Board server construction and registration completed', {
+      boardId,
+      durationMs: Number((performance.now() - serverConstructionStartedAt).toFixed(2)),
+    })
+  }
 
   return server
 }

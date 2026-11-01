@@ -5,6 +5,7 @@ import { db } from '../../server/db'
 vi.mock('../../server/db', () => ({
   db: {
     insert: vi.fn(),
+    transaction: vi.fn(),
   }
 }))
 
@@ -29,6 +30,7 @@ vi.mock('../../server/db/schema', () => ({
 describe('global-mcp utils', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ;(db.transaction as any).mockImplementation((callback: any) => callback({ insert: db.insert }))
   })
 
   describe('createGlobalMcpServer', () => {
@@ -62,6 +64,8 @@ describe('global-mcp utils', () => {
       
       expect(parsedResult.board.name).toBe('New Board')
       expect(parsedResult.board.ownerId).toBe('user-1')
+      expect(db.transaction).toHaveBeenCalledTimes(1)
+      expect(db.insert).toHaveBeenCalledTimes(2)
     })
 
     it('should implement create-board with minimal fields (no description)', async () => {
@@ -76,6 +80,7 @@ describe('global-mcp utils', () => {
       const parsed = JSON.parse(result.content[0].text)
       expect(parsed.board.name).toBe('Minimal Board')
       expect(parsed.board.description).toBeNull()
+      expect(db.transaction).toHaveBeenCalledTimes(1)
     })
 
     it('should reject oversized board names and descriptions', async () => {

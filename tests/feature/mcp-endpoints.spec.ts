@@ -7,6 +7,8 @@ import { createGlobalMcpServer } from '../../server/utils/global-mcp'
 import { hashBearerToken } from '../../server/utils/token-digests'
 import boardMcpEndpoint from '../../server/api/boards/[id]/mcp'
 import globalMcpEndpoint from '../../server/api/mcp'
+import mcpFunctionsEndpoint from '../../server/api/mcp-functions'
+import { MCP_FUNCTIONS } from '../../shared/mcp-capabilities'
 
 const endpointState = vi.hoisted(() => ({
   boardId: 'board-1',
@@ -316,6 +318,12 @@ describe('MCP endpoint authorization', () => {
     expect(results.filter(result => result.isError)).toHaveLength(1)
     expect(updates).toBe(2)
     expect(currentTask.status).toBe('in_progress')
+  })
+})
+
+describe('MCP function discovery', () => {
+  it('returns the canonical shared capability registry', () => {
+    expect(mcpFunctionsEndpoint()).toEqual(MCP_FUNCTIONS)
   })
 })
 

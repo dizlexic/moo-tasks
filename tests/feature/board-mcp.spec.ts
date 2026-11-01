@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createBoardMcpServer, invalidateBoardMetadata } from '../../server/utils/board-mcp'
+import { MCP_CAPABILITIES, MCP_FUNCTIONS } from '../../shared/mcp-capabilities'
 import { db } from '../../server/db'
 
 vi.mock('../../server/db', () => ({
@@ -71,6 +72,22 @@ describe('board-mcp utils', () => {
       const registeredTools = server._registeredTools
       expect(registeredTools).toHaveProperty('list-tasks')
       expect(registeredTools).toHaveProperty('get-task')
+    })
+
+    it('keeps private server registrations aligned with the shared tool registry and discovery list', async () => {
+      const mockBoard = { id: 'registry-board', mcpEnabledFunctions: null }
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([]) })
+
+      const server = await createBoardMcpServer('registry-board')
+      // @ts-ignore
+      const registeredNames = Object.keys(server._registeredTools)
+      const registeredCapabilities = MCP_CAPABILITIES.filter(capability => capability.kind === 'tool').map(capability => capability.name)
+
+      expect(registeredNames.sort()).toEqual(registeredCapabilities.sort())
+      expect(MCP_FUNCTIONS).toEqual(MCP_CAPABILITIES.map(capability => capability.name))
+      expect(registeredNames).toContain('generate-changelog')
+      expect(registeredNames).toContain('add-comment-with-attachment')
     })
 
     it('should expose only read-only tools for public boards', async () => {
@@ -490,6 +507,7 @@ describe('board-mcp utils', () => {
       const mockColumns = [
         { status: 'todo', permissions: { view: true } },
         { status: 'done', permissions: { view: true } },
+        { status: 'archive', permissions: { view: true } },
       ]
       
       ;(db.select as any).mockReturnValueOnce({
@@ -508,7 +526,7 @@ describe('board-mcp utils', () => {
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
-        groupBy: vi.fn().mockResolvedValue([{ status: 'todo', total: 1 }, { status: 'done', total: 1 }]),
+        groupBy: vi.fn().mockResolvedValue([{ status: 'todo', total: 1 }, { status: 'done', total: 1 }, { status: 'archive', total: 1 }]),
       }).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
@@ -519,13 +537,23 @@ describe('board-mcp utils', () => {
         where: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue([{ id: 'task-2', status: 'done' }]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([{ id: 'task-3', status: 'archive' }]),
       })
 
       const result = await boardStateHandler(new URL('moo-tasks://board-1/board-state'))
       const parsedContent = JSON.parse(result.contents[0].text)
-      expect(parsedContent.totalTasks).toBe(2)
+      expect(parsedContent.totalTasks).toBe(3)
+      expect(parsedContent.statusOrder).toEqual(['backlog', 'todo', 'in_progress', 'review', 'done', 'archive'])
+      expect(parsedContent.counts.archive).toBe(1)
+      expect(parsedContent.sampleLimit).toBe(50)
+      expect(parsedContent.note).toContain('deterministic samples')
       expect(parsedContent.columns.todo).toHaveLength(1)
       expect(parsedContent.columns.done).toHaveLength(1)
+      expect(parsedContent.columns.archive).toEqual([{ id: 'task-3', status: 'archive' }])
     })
 
     it('should only include viewable tasks in board state', async () => {
