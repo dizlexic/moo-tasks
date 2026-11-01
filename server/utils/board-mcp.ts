@@ -1,11 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { eq, and, or, like, isNull, inArray, asc, desc, gte } from 'drizzle-orm'
+import { eq, and, or, like, isNull, inArray, asc, desc, gte, ne } from 'drizzle-orm'
 import { db } from '../db'
 import { tasks, comments, instructions, boards, boardColumns, users, boardMembers, tags, taskTags, plans, planTasks } from '../db/schema'
 import { generateId } from './id'
 import { emitTaskEvent } from './socket'
-import { reorderTasks, getNextBoardTaskId } from './tasks'
+import { reorderTasks, getNextBoardTaskId, getNextBoardTaskIds } from './tasks'
 import { logBoardEvent } from './logs'
 
 async function getInstructionContent(boardId: string, type: 'agent_instructions' | 'task_workflow'): Promise<string> {
@@ -406,7 +406,24 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
         }
       }
 
-      await db.update(tasks).set({ assignee: agentName.trim(), status: 'in_progress', updatedAt: new Date() }).where(eq(tasks.id, taskId))
+      const updateResult = await db.update(tasks)
+        .set({ assignee: agentName.trim(), status: 'in_progress', updatedAt: new Date() })
+        .where(and(
+          eq(tasks.id, taskId),
+          eq(tasks.boardId, boardId),
+          eq(tasks.status, existing.status),
+          or(ne(tasks.status, 'in_progress'), isNull(tasks.assignee)),
+        ))
+      if (!updateResult[0]?.affectedRows) {
+        const currentResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
+        const current = currentResults[0]
+        if (!current) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
+        if (current.assignee && current.status === 'in_progress') {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: `Task is already accepted by ${current.assignee}` }) }], isError: true }
+        }
+        return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task could not be accepted because it changed. Please retry.' }) }], isError: true }
+      }
+
       const updatedResults = await db.select().from(tasks).where(eq(tasks.id, taskId))
       const updated = updatedResults[0]
       if (updated) emitTaskEvent(boardId, 'task:updated', updated)
@@ -795,12 +812,12 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
       if (pTasks.length === 0) return { content: [{ type: 'text', text: JSON.stringify({ message: 'Plan has no tasks' }) }] }
 
       const now = new Date()
-      let nextBoardTaskId = await getNextBoardTaskId(boardId)
+      const boardTaskIds = await getNextBoardTaskIds(boardId, pTasks.length)
       
       const createdTasks: any[] = []
       // Wrap the batch inserts in a transaction for atomicity (all-or-nothing plan apply) and fewer roundtrips
       await db.transaction(async (tx) => {
-        for (const pt of pTasks) {
+        for (const [index, pt] of pTasks.entries()) {
           const newTask = {
             id: generateId(),
             boardId,
@@ -809,7 +826,7 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
             status: 'todo' as const,
             priority: pt.priority,
             order: pt.order,
-            boardTaskId: nextBoardTaskId++,
+            boardTaskId: boardTaskIds[index],
             difficulty: pt.difficulty,
             isHumanOnly: pt.isHumanOnly,
             createdAt: now,

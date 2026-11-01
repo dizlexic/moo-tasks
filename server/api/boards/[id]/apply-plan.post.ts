@@ -3,7 +3,7 @@ import { db } from '../../../db'
 import { tasks, planTasks, plans, boardMembers } from '../../../db/schema'
 import { generateId } from '../../../utils/id'
 import { eq, and, or, asc } from 'drizzle-orm'
-import { getNextBoardTaskId } from '../../../utils/tasks'
+import { getNextBoardTaskIds } from '../../../utils/tasks'
 import { emitTaskEvent } from '../../../utils/socket'
 import { logBoardEvent } from '../../../utils/logs'
 
@@ -45,10 +45,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date()
-  let nextBoardTaskId = await getNextBoardTaskId(boardId)
+  const boardTaskIds = await getNextBoardTaskIds(boardId, pTasks.length)
   
   const createdTasks = []
-  for (const pt of pTasks) {
+  for (const [index, pt] of pTasks.entries()) {
     const newTask = {
       id: generateId(),
       boardId,
@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
       status: 'todo',
       priority: pt.priority,
       order: pt.order,
-      boardTaskId: nextBoardTaskId++,
+      boardTaskId: boardTaskIds[index],
       difficulty: pt.difficulty,
       isHumanOnly: pt.isHumanOnly,
       createdAt: now,

@@ -19,6 +19,7 @@ vi.mock('../../server/utils/socket', () => ({
 vi.mock('../../server/utils/tasks', () => ({
   reorderTasks: vi.fn(),
   getNextBoardTaskId: vi.fn(),
+  getNextBoardTaskIds: vi.fn(),
 }))
 
 vi.mock('../../server/utils/logs', () => ({
@@ -300,12 +301,52 @@ describe('board-mcp utils', () => {
 
       ;(db.update as any).mockReturnValue({
         set: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue({}),
+        where: vi.fn().mockResolvedValue([{ affectedRows: 1 }, []]),
       })
 
       const result = await acceptTaskHandler({ taskId: 'task-1', agentName: 'Agent 1' })
       const parsedResult = JSON.parse(result.content[0].text)
       expect(parsedResult.message).toContain('accepted')
+    })
+
+    it('should reject a task claim when another agent wins the conditional update', async () => {
+      const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'accept-task': true } }
+      const mockColumns = [
+        { status: 'todo', permissions: { move: true } },
+        { status: 'in_progress', permissions: { move: true } },
+      ]
+
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([mockBoard]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue(mockColumns),
+      })
+
+      const server = await createBoardMcpServer('board-1')
+      // @ts-ignore
+      const acceptTaskHandler = server._registeredTools['accept-task'].handler
+
+      const taskBeforeRace = { id: 'task-1', status: 'todo', isHumanOnly: false, assignee: null }
+      const taskAfterRace = { ...taskBeforeRace, status: 'in_progress', assignee: 'Agent 1' }
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([taskBeforeRace]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([taskAfterRace]),
+      })
+
+      ;(db.update as any).mockReturnValue({
+        set: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([{ affectedRows: 0 }, []]),
+      })
+
+      const result = await acceptTaskHandler({ taskId: 'task-1', agentName: 'Agent 2' })
+      const parsedResult = JSON.parse(result.content[0].text)
+      expect(result.isError).toBe(true)
+      expect(parsedResult.error).toContain('Agent 1')
     })
 
     it('should reject a task when reject-task is called', async () => {

@@ -64,6 +64,13 @@ export const tasks = mysqlTable('tasks', {
   isHumanOnly: boolean('is_human_only').notNull().default(false),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
+}, (table) => [
+  uniqueIndex('tasks_board_id_board_task_id_unique').on(table.boardId, table.boardTaskId),
+])
+
+export const boardTaskCounters = mysqlTable('board_task_counters', {
+  boardId: varchar('board_id', { length: 191 }).primaryKey().references(() => boards.id, { onDelete: 'cascade' }),
+  lastTaskId: int('last_task_id').notNull().default(0),
 })
 
 export const instructions = mysqlTable('instructions', {

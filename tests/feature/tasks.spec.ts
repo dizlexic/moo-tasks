@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getNextBoardTaskId, reindexTasks, reorderTasks } from '../../server/utils/tasks'
+import { getNextBoardTaskId, getNextBoardTaskIds, reindexTasks, reorderTasks } from '../../server/utils/tasks'
 import { db } from '../../server/db'
 import { emitTaskEvent } from '../../server/utils/socket'
 
 vi.mock('../../server/db', () => ({
   db: {
     select: vi.fn(),
+    insert: vi.fn(),
     update: vi.fn(),
+    transaction: vi.fn(),
   }
 }))
 
@@ -20,27 +22,32 @@ describe('tasks utils', () => {
   })
 
   describe('getNextBoardTaskId', () => {
-    it('should return 1 if no tasks exist', async () => {
-      const mockChain = {
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue([{ maxId: null }])
+    it('should atomically reserve a range after the highest existing task ID', async () => {
+      const selectResults: any[] = [[{ maxId: 7 }], [{ lastTaskId: 10 }]]
+      const tx = {
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue(selectResults.shift()),
+        })),
+        insert: vi.fn(),
+        update: vi.fn(),
       }
-      ;(db.select as any).mockReturnValue(mockChain)
+      const onDuplicateKeyUpdate = vi.fn().mockResolvedValue(undefined)
+      const values = vi.fn().mockReturnValue({ onDuplicateKeyUpdate })
+      tx.insert.mockReturnValue({ values })
+      const updateWhere = vi.fn().mockResolvedValue([{ affectedRows: 1 }, []])
+      const set = vi.fn().mockReturnValue({ where: updateWhere })
+      tx.update.mockReturnValue({ set })
+      ;(db.transaction as any).mockImplementation((callback: any) => callback(tx))
 
-      const id = await getNextBoardTaskId('board-1')
-      expect(id).toBe(1)
-      expect(db.select).toHaveBeenCalled()
-    })
+      const ids = await getNextBoardTaskIds('board-1', 3)
 
-    it('should return maxId + 1', async () => {
-      const mockChain = {
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue([{ maxId: 10 }])
-      }
-      ;(db.select as any).mockReturnValue(mockChain)
-
-      const id = await getNextBoardTaskId('board-1')
-      expect(id).toBe(11)
+      expect(ids).toEqual([8, 9, 10])
+      expect(db.transaction).toHaveBeenCalledOnce()
+      expect(values).toHaveBeenCalledWith({ boardId: 'board-1', lastTaskId: 7 })
+      expect(onDuplicateKeyUpdate).toHaveBeenCalledOnce()
+      expect(set).toHaveBeenCalledOnce()
+      expect(updateWhere).toHaveBeenCalledOnce()
     })
   })
 

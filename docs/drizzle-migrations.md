@@ -76,6 +76,16 @@ Checklist:
 - [ ] New `NOT NULL` columns have a default *or* the table is empty.
 - [ ] Migration succeeds against a copy of staging data, not just an empty DB.
 
+### Per-board task ID allocation
+
+Migration `0023_large_sharon_carter.sql` creates the per-board task ID counter,
+repairs only duplicate human-readable `board_task_id` values (keeping the
+oldest task's value), adds a unique `(board_id, board_task_id)` constraint, and
+backfills counters from existing tasks. Opaque task IDs and task data are not
+changed. The startup migration step must complete before the updated app serves
+task writes; if deploying alongside older application instances, drain those
+writers first because they do not use the counter.
+
 ---
 
 ## 3. Non-destructive migration patterns

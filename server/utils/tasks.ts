@@ -1,6 +1,6 @@
 import { eq, and, asc, desc, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { tasks } from '../db/schema'
+import { boardTaskCounters, tasks } from '../db/schema'
 import { emitTaskEvent } from './socket'
 
 export async function reindexTasks(boardId: string, status: string) {
@@ -42,10 +42,36 @@ export async function reorderTasks(boardId: string, status: string, taskId: stri
 }
 
 export async function getNextBoardTaskId(boardId: string): Promise<number> {
-  const result = await db.select({ maxId: sql<number>`max(${tasks.boardTaskId})` })
-    .from(tasks)
-    .where(eq(tasks.boardId, boardId))
+  const [nextTaskId] = await getNextBoardTaskIds(boardId, 1)
+  return nextTaskId
+}
 
-  const maxId = result[0]?.maxId || 0
-  return Number(maxId) + 1
+export async function getNextBoardTaskIds(boardId: string, count: number): Promise<number[]> {
+  if (!Number.isSafeInteger(count) || count < 1) {
+    throw new Error('Task ID reservation count must be a positive integer')
+  }
+
+  return db.transaction(async (tx) => {
+    const maxResults = await tx.select({ maxId: sql<number>`max(${tasks.boardTaskId})` })
+      .from(tasks)
+      .where(eq(tasks.boardId, boardId))
+    const maxId = Number(maxResults[0]?.maxId || 0)
+
+    await tx.insert(boardTaskCounters).values({ boardId, lastTaskId: maxId })
+      .onDuplicateKeyUpdate({ set: { lastTaskId: sql`${boardTaskCounters.lastTaskId}` } })
+
+    const updateResult = await tx.update(boardTaskCounters)
+      .set({ lastTaskId: sql`${boardTaskCounters.lastTaskId} + ${count}` })
+      .where(eq(boardTaskCounters.boardId, boardId))
+    if (!updateResult[0]?.affectedRows) throw new Error('Failed to reserve task IDs')
+
+    const counterResults = await tx.select({ lastTaskId: boardTaskCounters.lastTaskId })
+      .from(boardTaskCounters)
+      .where(eq(boardTaskCounters.boardId, boardId))
+    const allocatedThrough = Number(counterResults[0]?.lastTaskId)
+    if (!Number.isSafeInteger(allocatedThrough)) throw new Error('Failed to read reserved task IDs')
+
+    const firstTaskId = allocatedThrough - count + 1
+    return Array.from({ length: count }, (_, index) => firstTaskId + index)
+  })
 }
