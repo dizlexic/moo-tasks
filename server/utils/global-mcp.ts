@@ -55,8 +55,8 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
       'create-board',
       'Create a new board on this Moo Tasks instance.',
       {
-        name: z.string().min(1).describe('Board name'),
-        description: z.string().optional().describe('Board description'),
+        name: z.string().trim().min(1).max(255).describe('Board name (maximum 255 characters)'),
+        description: z.string().max(10_000).optional().describe('Board description (maximum 10000 characters)'),
       },
       async ({ name, description }) => {
         const boardId = generateId()

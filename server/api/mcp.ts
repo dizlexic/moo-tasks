@@ -46,10 +46,11 @@ export default defineEventHandler(async (event) => {
     })
     await mcpServer.connect(transport)
     await transport.handleRequest(req, res, parsedBody)
-  } catch (e: any) {
+  } catch (error) {
+    console.error('[MCP] Global endpoint request failed:', error)
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: e.message }))
+      res.end(JSON.stringify({ error: 'Internal server error' }))
     }
   }
 })

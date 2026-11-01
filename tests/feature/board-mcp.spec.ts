@@ -92,6 +92,61 @@ describe('board-mcp utils', () => {
       ])
     })
 
+    it('should reject oversized task, comment, agent, and pagination inputs in tool schemas', async () => {
+      const mockBoard = { id: 'bounded-board', mcpEnabledFunctions: null }
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([]) })
+
+      const server = await createBoardMcpServer('bounded-board')
+      // @ts-ignore
+      const registeredTools = server._registeredTools
+
+      expect(registeredTools['create-task'].inputSchema.safeParse({ title: 't'.repeat(256) }).success).toBe(false)
+      expect(registeredTools['create-task'].inputSchema.safeParse({ title: 'Valid title', description: 'd'.repeat(10_001) }).success).toBe(false)
+      expect(registeredTools['accept-task'].inputSchema.safeParse({ taskId: 'task-1', agentName: 'a'.repeat(256) }).success).toBe(false)
+      expect(registeredTools['add-comment'].inputSchema.safeParse({ taskId: 'task-1', author: 'agent', content: 'c'.repeat(16_001) }).success).toBe(false)
+      expect(registeredTools['list-tasks'].inputSchema.safeParse({ limit: 101 }).success).toBe(false)
+      expect(registeredTools['get-comments'].inputSchema.safeParse({ taskId: 'task-1', since: 'not-a-date' }).success).toBe(false)
+    })
+
+    it('should return an error for invalid since values instead of ignoring them', async () => {
+      const mockBoard = { id: 'since-board', mcpEnabledFunctions: null }
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([]) })
+
+      const server = await createBoardMcpServer('since-board')
+      // @ts-ignore
+      const result = await server._registeredTools['generate-changelog'].handler({ since: 'not-a-date' })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.parse(result.content[0].text).error).toContain('valid ISO 8601')
+    })
+
+    it('should reject plan applications above the maximum batch size', async () => {
+      const mockBoard = { id: 'batch-board', ownerId: 'owner-1', mcpEnabledFunctions: null }
+      const mockColumns = [{ status: 'todo', permissions: { add: true } }]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('batch-board')
+      // @ts-ignore
+      const applyPlanHandler = server._registeredTools['apply-plan'].handler
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([{ id: 'plan-1', name: 'Large plan' }]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockResolvedValue(Array.from({ length: 101 }, (_, order) => ({ order }))),
+      })
+
+      const result = await applyPlanHandler({ planId: 'plan-1' })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.parse(result.content[0].text).error).toContain('maximum batch size of 100')
+      expect(db.transaction).not.toHaveBeenCalled()
+    })
+
     it('should reject inaccessible statuses in list-tasks', async () => {
       const mockBoard = {
         id: 'board-1',
@@ -133,7 +188,8 @@ describe('board-mcp utils', () => {
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'backlog' }]),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'backlog' }]),
       })
 
       const result = await listTasksHandler({ status: 'backlog' })
@@ -263,7 +319,8 @@ describe('board-mcp utils', () => {
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue(mockTasks),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue(mockTasks),
       })
 
       const result = await listTasksHandler({ status: 'review' })
@@ -568,7 +625,8 @@ describe('board-mcp utils', () => {
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue(mockDone),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue(mockDone),
       })
 
       const result = await genChangelogHandler({ template: 'simple' })
@@ -580,7 +638,8 @@ describe('board-mcp utils', () => {
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue(mockDone),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue(mockDone),
       })
       const detailed = await genChangelogHandler({ template: 'detailed' })
       expect(detailed.content[0].text).toContain('### Ship v1')

@@ -8,6 +8,22 @@ import { emitTaskEvent } from './socket'
 import { reorderTasks, getNextBoardTaskId, getNextBoardTaskIds } from './tasks'
 import { logBoardEvent } from './logs'
 
+const MCP_MAX_PAGE_SIZE = 100
+const MCP_DEFAULT_PAGE_SIZE = 50
+const MCP_MAX_OFFSET = 100_000
+const MCP_MAX_DESCRIPTION_LENGTH = 10_000
+const MCP_MAX_COMMENT_LENGTH = 16_000
+const taskIdSchema = z.string().min(1).max(191)
+const taskTitleSchema = z.string().trim().min(1).max(255)
+const descriptionSchema = z.string().max(MCP_MAX_DESCRIPTION_LENGTH)
+const commentAuthorSchema = z.string().trim().min(1).max(255)
+const commentContentSchema = z.string().min(1).max(MCP_MAX_COMMENT_LENGTH)
+const isoDateTimeSchema = z.string().datetime({ offset: true })
+
+function invalidSinceResult() {
+  return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'since must be a valid ISO 8601 date-time' }) }], isError: true }
+}
+
 async function getInstructionContent(boardId: string, type: 'agent_instructions' | 'task_workflow'): Promise<string> {
   // Try board-specific first, then fall back to global
   const boardInstrResults = await db.select().from(instructions)
@@ -110,8 +126,8 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     {
       status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done', 'archive']).optional().describe('Filter by task status'),
       priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Filter by task priority'),
-      limit: z.number().int().positive().optional().describe('Limit the number of tasks returned (default 10 for todo)'),
-      offset: z.number().int().nonnegative().optional().describe('Offset for pagination (0-based)'),
+      limit: z.number().int().positive().max(MCP_MAX_PAGE_SIZE).optional().describe('Limit the number of tasks returned (maximum 100; default 10 for todo, 50 otherwise)'),
+      offset: z.number().int().nonnegative().max(MCP_MAX_OFFSET).optional().describe('Offset for pagination (0-based; maximum 100000)'),
     },
     async ({ status, priority, limit, offset }) => {
       if (enabledFunctions['list-tasks'] === false) throw new Error('Tool disabled')
@@ -133,7 +149,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
       if (priority) conditions.push(eq(tasks.priority, priority))
 
       let q = db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
-      const effLimit = limit || (status === 'todo' && !offset ? 10 : undefined)
+      const effLimit = limit ?? (status === 'todo' && !offset ? 10 : MCP_DEFAULT_PAGE_SIZE)
       if (effLimit) q = q.limit(effLimit)
       if (offset) q = q.offset(offset)
       const result = await q
@@ -148,7 +164,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
   server.tool(
     'get-task',
     'Get full details of a task by ID.',
-    { taskId: z.string().describe('The unique task ID') },
+    { taskId: taskIdSchema.describe('The unique task ID') },
     async ({ taskId }) => {
       if (enabledFunctions['get-task'] === false) throw new Error('Tool disabled')
 
@@ -165,10 +181,10 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'create-task',
     'Create a new task on this board.',
     {
-      title: z.string().min(1).describe('Task title'),
-      description: z.string().optional().describe('Task description'),
+      title: taskTitleSchema.describe('Task title (maximum 255 characters)'),
+      description: descriptionSchema.optional().describe('Task description (maximum 10000 characters)'),
       priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Task priority'),
-      parentTaskId: z.string().optional().describe('Parent task ID if this is a correction/follow-up task'),
+      parentTaskId: taskIdSchema.optional().describe('Parent task ID if this is a correction/follow-up task'),
     },
     async ({ title, description, priority, parentTaskId }) => {
       if (enabledFunctions['create-task'] === false) throw new Error('Tool disabled')
@@ -203,7 +219,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'update-task-status',
     'Update a task\'s status.',
     {
-      taskId: z.string().describe('The unique task ID'),
+      taskId: taskIdSchema.describe('The unique task ID'),
       status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done', 'archive']).describe('New status'),
     },
     async ({ taskId, status }) => {
@@ -227,7 +243,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'submit-for-review',
     'Submit a task for review. Moves the task to review status.',
     {
-      taskId: z.string().describe('The unique task ID'),
+      taskId: taskIdSchema.describe('The unique task ID'),
     },
     async ({ taskId }) => {
       if (enabledFunctions['submit-for-review'] === false) throw new Error('Tool disabled')
@@ -250,9 +266,9 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'request-corrections',
     'Create a correction task linked to a reviewed task. The original task stays in review.',
     {
-      taskId: z.string().describe('The original task ID that needs corrections'),
-      title: z.string().min(1).describe('Title for the correction task'),
-      description: z.string().optional().describe('Description of corrections needed'),
+      taskId: taskIdSchema.describe('The original task ID that needs corrections'),
+      title: taskTitleSchema.describe('Title for the correction task (maximum 255 characters)'),
+      description: descriptionSchema.optional().describe('Description of corrections needed (maximum 10000 characters)'),
       priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Priority for the correction task'),
     },
     async ({ taskId, title, description, priority }) => {
@@ -306,8 +322,8 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'reject-task',
     'Reject a task review and move it back to todo with a comment and correction tag. Use this for AI review.',
     {
-      taskId: z.string().describe('The unique task ID'),
-      reason: z.string().min(1).describe('The reason for rejection'),
+      taskId: taskIdSchema.describe('The unique task ID'),
+      reason: commentContentSchema.describe('The reason for rejection (maximum 16000 characters)'),
     },
     async ({ taskId, reason }) => {
       if (enabledFunctions['reject-task'] === false) throw new Error('Tool disabled')
@@ -381,8 +397,8 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'accept-task',
     'Accept a task by assigning yourself and moving it to in_progress.',
     {
-      taskId: z.string().describe('The unique task ID'),
-      agentName: z.string().min(1).describe('Your agent name/identifier'),
+      taskId: taskIdSchema.describe('The unique task ID'),
+      agentName: z.string().trim().min(1).max(255).describe('Your agent name/identifier (maximum 255 characters)'),
     },
     async ({ taskId, agentName }) => {
       if (enabledFunctions['accept-task'] === false) throw new Error('Tool disabled')
@@ -435,9 +451,9 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'add-comment',
     'Add a comment to a task.',
     {
-      taskId: z.string().describe('The unique task ID'),
-      author: z.string().min(1).describe('Name of the comment author'),
-      content: z.string().min(1).describe('The comment text'),
+      taskId: taskIdSchema.describe('The unique task ID'),
+      author: commentAuthorSchema.describe('Name of the comment author (maximum 255 characters)'),
+      content: commentContentSchema.describe('The comment text (maximum 16000 characters)'),
     },
     async ({ taskId, author, content }) => {
       if (enabledFunctions['add-comment'] === false) throw new Error('Tool disabled')
@@ -466,12 +482,12 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'add-comment-with-attachment',
     'Add a comment with an attachment to a task.',
     {
-      taskId: z.string().describe('The unique task ID'),
-      author: z.string().min(1).describe('Name of the comment author'),
-      content: z.string().min(1).describe('The comment text'),
-      attachmentUrl: z.string().describe('The URL of the attachment'),
-      attachmentType: z.string().describe('The type of the attachment (e.g., image/png)'),
-      attachmentName: z.string().optional().describe('The name of the attachment'),
+      taskId: taskIdSchema.describe('The unique task ID'),
+      author: commentAuthorSchema.describe('Name of the comment author (maximum 255 characters)'),
+      content: commentContentSchema.describe('The comment text (maximum 16000 characters)'),
+      attachmentUrl: z.string().max(2048).describe('The URL of the attachment (maximum 2048 characters)'),
+      attachmentType: z.string().min(1).max(255).describe('The type of the attachment (e.g., image/png; maximum 255 characters)'),
+      attachmentName: z.string().max(255).optional().describe('The name of the attachment (maximum 255 characters)'),
     },
     async ({ taskId, author, content, attachmentUrl, attachmentType, attachmentName }) => {
       if (enabledFunctions['add-comment'] === false) throw new Error('Tool disabled')
@@ -500,7 +516,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'delete-task',
     'Deletes a task from the board.',
     {
-      taskId: z.string().describe('The unique task ID'),
+      taskId: taskIdSchema.describe('The unique task ID'),
     },
     async ({ taskId }) => {
       if (enabledFunctions['delete-task'] === false) throw new Error('Tool disabled')
@@ -522,13 +538,14 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'get-comments',
     'Get all comments for a task.',
     {
-      taskId: z.string().describe('The unique task ID'),
-      limit: z.number().int().positive().optional().describe('Limit number of comments (most recent first)'),
-      offset: z.number().int().nonnegative().optional().describe('Offset for pagination'),
-      since: z.string().optional().describe('ISO date string; only return comments created at/after this time (for incremental)'),
+      taskId: taskIdSchema.describe('The unique task ID'),
+      limit: z.number().int().positive().max(MCP_MAX_PAGE_SIZE).optional().describe('Limit number of comments (maximum 100; default 50, most recent first)'),
+      offset: z.number().int().nonnegative().max(MCP_MAX_OFFSET).optional().describe('Offset for pagination (maximum 100000)'),
+      since: isoDateTimeSchema.optional().describe('ISO 8601 date-time; only return comments created at/after this time (for incremental)'),
     },
     async ({ taskId, limit, offset, since }) => {
       if (enabledFunctions['get-comments'] === false) throw new Error('Tool disabled')
+      if (since && !isoDateTimeSchema.safeParse(since).success) return invalidSinceResult()
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'get-comments', data: { taskId, limit, offset, since } })
       const taskResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
@@ -537,12 +554,9 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
       if (!canViewTask(task)) return permissionDenied()
 
       const conditions: any[] = [eq(comments.taskId, taskId)]
-      if (since) {
-        const sinceDate = new Date(since)
-        if (!isNaN(sinceDate.getTime())) conditions.push(gte(comments.createdAt, sinceDate))
-      }
+      if (since) conditions.push(gte(comments.createdAt, new Date(since)))
       let q = db.select().from(comments).where(and(...conditions)).orderBy(desc(comments.createdAt))
-      if (limit) q = q.limit(limit)
+      q = q.limit(limit ?? MCP_DEFAULT_PAGE_SIZE)
       if (offset) q = q.offset(offset)
       const result = await q
       return { content: [{ type: 'text', text: JSON.stringify({ comments: result, count: result.length }) }] }
@@ -608,23 +622,21 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'Generate a markdown changelog based on completed (done) tasks on this board.',
     {
       template: z.enum(['simple', 'detailed', 'priority']).optional().default('simple').describe('Changelog formatting template'),
-      limit: z.number().int().positive().optional().describe('Max number of done tasks to include (default all, newest first)'),
-      since: z.string().optional().describe('ISO date; only include tasks updated at/after this (incremental changelog)'),
+      limit: z.number().int().positive().max(MCP_MAX_PAGE_SIZE).optional().describe('Max number of done tasks to include (maximum 100; default 100, newest first)'),
+      since: isoDateTimeSchema.optional().describe('ISO 8601 date-time; only include tasks updated at/after this (incremental changelog)'),
     },
     async ({ template, limit, since }) => {
       if (enabledFunctions['generate-changelog'] === false) throw new Error('Tool disabled')
+      if (since && !isoDateTimeSchema.safeParse(since).success) return invalidSinceResult()
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'tool:generate-changelog', data: { template, limit, since } })
       if (!getPermissions('done').view) return { content: [{ type: 'text', text: 'No tasks completed yet.' }] }
       const conditions = [eq(tasks.boardId, boardId), eq(tasks.status, 'done')]
-      if (since) {
-        const d = new Date(since)
-        if (!isNaN(d.getTime())) conditions.push(gte(tasks.updatedAt, d))
-      }
+      if (since) conditions.push(gte(tasks.updatedAt, new Date(since)))
       let q = db.select().from(tasks)
         .where(and(...conditions))
         .orderBy(desc(tasks.updatedAt))
-      if (limit) q = q.limit(limit)
+      q = q.limit(limit ?? MCP_MAX_PAGE_SIZE)
       const doneTasks = await q
 
       if (doneTasks.length === 0) {
@@ -679,8 +691,8 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     'create-board',
     'Create a new board on this Moo Tasks instance.',
     {
-      name: z.string().min(1).describe('Board name'),
-      description: z.string().optional().describe('Board description'),
+      name: z.string().trim().min(1).max(255).describe('Board name (maximum 255 characters)'),
+      description: descriptionSchema.optional().describe('Board description (maximum 10000 characters)'),
     },
     async ({ name, description }) => {
       if (enabledFunctions['create-board'] === false) throw new Error('Tool disabled')
@@ -765,9 +777,10 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
     'list-plans',
     'Discover available task plans (templates). Plans can be applied to a board to populate it with a set of tasks.',
     {
-      search: z.string().optional().describe('Search term to filter plans by name or description'),
+      search: z.string().max(255).optional().describe('Search term to filter plans by name or description (maximum 255 characters)'),
+      limit: z.number().int().positive().max(MCP_MAX_PAGE_SIZE).optional().describe('Maximum number of plans to return (default 50)'),
     },
-    async ({ search }) => {
+    async ({ search, limit }) => {
       if (enabledFunctions['list-plans'] === false) throw new Error('Tool disabled')
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-plans', data: { search } })
@@ -783,7 +796,7 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
         ))
       }
 
-      const results = await db.select().from(plans).where(and(...conditions))
+      const results = await db.select().from(plans).where(and(...conditions)).limit(limit ?? MCP_DEFAULT_PAGE_SIZE)
       return { content: [{ type: 'text', text: JSON.stringify({ plans: results, count: results.length }) }] }
     }
   )
@@ -792,7 +805,7 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
     'apply-plan',
     'Apply a task plan to this board. This will create all tasks from the plan in the Todo column.',
     {
-      planId: z.string().describe('The ID of the plan to apply'),
+      planId: taskIdSchema.describe('The ID of the plan to apply'),
     },
     async ({ planId }) => {
       if (enabledFunctions['apply-plan'] === false) throw new Error('Tool disabled')
@@ -810,6 +823,9 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
       // Get plan tasks
       const pTasks = await db.select().from(planTasks).where(eq(planTasks.planId, planId)).orderBy(asc(planTasks.order))
       if (pTasks.length === 0) return { content: [{ type: 'text', text: JSON.stringify({ message: 'Plan has no tasks' }) }] }
+      if (pTasks.length > MCP_MAX_PAGE_SIZE) {
+        return { content: [{ type: 'text', text: JSON.stringify({ error: `Plan exceeds the maximum batch size of ${MCP_MAX_PAGE_SIZE} tasks` }) }], isError: true }
+      }
 
       const now = new Date()
       const boardTaskIds = await getNextBoardTaskIds(boardId, pTasks.length)

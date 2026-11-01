@@ -78,6 +78,15 @@ describe('global-mcp utils', () => {
       expect(parsed.board.description).toBeNull()
     })
 
+    it('should reject oversized board names and descriptions', async () => {
+      const server = await createGlobalMcpServer('user-4')
+      // @ts-ignore
+      const schema = server._registeredTools['create-board'].inputSchema
+
+      expect(schema.safeParse({ name: 'n'.repeat(256) }).success).toBe(false)
+      expect(schema.safeParse({ name: 'Valid board', description: 'd'.repeat(10_001) }).success).toBe(false)
+    })
+
     it('get-installation-instructions always returns setup content (core logic + edge: no userId path)', async () => {
       const serverNoUser = await createGlobalMcpServer()
       const serverWithUser = await createGlobalMcpServer('user-3')
