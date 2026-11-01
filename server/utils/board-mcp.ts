@@ -58,7 +58,7 @@ export function invalidateBoardMetadata(boardId?: string) {
   }
 }
 
-export async function createBoardMcpServer(boardId: string): Promise<McpServer> {
+export async function createBoardMcpServer(boardId: string, publicReadOnly?: boolean): Promise<McpServer> {
   let board: any
   let columns: any
 
@@ -98,6 +98,10 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     name: `moo-tasks-${boardId}`,
     version: '2.0.0',
   })
+  const canRegisterWriteTools = !(publicReadOnly ?? board.mcpPublic === true)
+  const registerWriteTool = (register: () => void) => {
+    if (canRegisterWriteTools) register()
+  }
 
   console.log('Registering tool: list-tasks');
   server.tool(
@@ -157,7 +161,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     },
   )
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'create-task',
     'Create a new task on this board.',
     {
@@ -193,9 +197,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       emitTaskEvent(boardId, 'task:created', newTask)
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task created', task: newTask }) }] }
     },
-  )
+  ))
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'update-task-status',
     'Update a task\'s status.',
     {
@@ -217,9 +221,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       if (updated) emitTaskEvent(boardId, 'task:updated', updated)
       return { content: [{ type: 'text', text: JSON.stringify({ message: `Task status updated to ${status}`, task: updated }) }] }
     },
-  )
+  ))
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'submit-for-review',
     'Submit a task for review. Moves the task to review status.',
     {
@@ -240,9 +244,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       if (updated) emitTaskEvent(boardId, 'task:updated', updated)
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task submitted for review', task: updated }) }] }
     },
-  )
+  ))
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'request-corrections',
     'Create a correction task linked to a reviewed task. The original task stays in review.',
     {
@@ -296,9 +300,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
 
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Correction task created, original moved back to in_progress', correctionTask, originalTaskId: taskId }) }] }
     },
-  )
+  ))
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'reject-task',
     'Reject a task review and move it back to todo with a comment and correction tag. Use this for AI review.',
     {
@@ -371,9 +375,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
 
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task rejected and moved back to todo with correction tag', task: updated }) }] }
     },
-  )
+  ))
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'accept-task',
     'Accept a task by assigning yourself and moving it to in_progress.',
     {
@@ -408,9 +412,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       if (updated) emitTaskEvent(boardId, 'task:updated', updated)
       return { content: [{ type: 'text', text: JSON.stringify({ message: `Task accepted by ${agentName}`, task: updated }) }] }
     },
-  )
+  ))
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'add-comment',
     'Add a comment to a task.',
     {
@@ -439,9 +443,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       await db.insert(comments).values(newComment)
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Comment added', comment: newComment }) }] }
     },
-  )
+  ))
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'add-comment-with-attachment',
     'Add a comment with an attachment to a task.',
     {
@@ -473,9 +477,9 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       await db.insert(comments).values(newComment)
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Comment added', comment: newComment }) }] }
     },
-  )
+  ))
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'delete-task',
     'Deletes a task from the board.',
     {
@@ -495,7 +499,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
 
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Task deleted', taskId }) }] }
     },
-  )
+  ))
 
   server.tool(
     'get-comments',
@@ -654,7 +658,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
     },
   )
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'create-board',
     'Create a new board on this Moo Tasks instance.',
     {
@@ -698,7 +702,7 @@ export async function createBoardMcpServer(boardId: string): Promise<McpServer> 
       
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Board created successfully', board: newBoard }) }] }
     }
-  )
+  ))
 
   server.tool(
     'get-installation-instructions',
@@ -767,7 +771,7 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
     }
   )
 
-  server.tool(
+  registerWriteTool(() => server.tool(
     'apply-plan',
     'Apply a task plan to this board. This will create all tasks from the plan in the Todo column.',
     {
@@ -820,7 +824,7 @@ Each board provides its own MCP endpoint. Copy the configuration snippet from Bo
 
       return { content: [{ type: 'text', text: JSON.stringify({ message: `Successfully applied plan "${planResult.name}"`, count: pTasks.length }) }] }
     }
-  )
+  ))
 
   return server
 }

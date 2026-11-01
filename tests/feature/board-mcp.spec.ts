@@ -72,6 +72,25 @@ describe('board-mcp utils', () => {
       expect(registeredTools).toHaveProperty('get-task')
     })
 
+    it('should expose only read-only tools for public boards', async () => {
+      const mockBoard = { id: 'public-board', mcpPublic: true, mcpEnabledFunctions: null }
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([]) })
+
+      const server = await createBoardMcpServer('public-board')
+      // @ts-ignore
+      const registeredTools = server._registeredTools
+
+      expect(Object.keys(registeredTools).sort()).toEqual([
+        'generate-changelog',
+        'get-comments',
+        'get-installation-instructions',
+        'get-task',
+        'list-plans',
+        'list-tasks',
+      ])
+    })
+
     it('should reject inaccessible statuses in list-tasks', async () => {
       const mockBoard = {
         id: 'board-1',
