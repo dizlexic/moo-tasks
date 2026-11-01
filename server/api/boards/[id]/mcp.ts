@@ -1,10 +1,11 @@
 import { getRouterParam, createError, defineEventHandler, readBody } from 'h3'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { eq } from 'drizzle-orm'
+import { and, eq, gt } from 'drizzle-orm'
 import { db } from '../../../db'
-import { boards, users } from '../../../db/schema'
+import { boards, boardMembers, boardTokens, users } from '../../../db/schema'
 import { createBoardMcpServer } from '../../../utils/board-mcp'
 import { logBoardEvent } from '../../../utils/logs'
+import { hashBearerToken, matchesBearerTokenDigest } from '../../../utils/token-digests'
 
 export default defineEventHandler(async (event) => {
   const boardId = getRouterParam(event, 'id')!
@@ -22,37 +23,31 @@ export default defineEventHandler(async (event) => {
   // standard HTTP `Authorization: Bearer <token>` header. We no longer accept
   // tokens via query string for security reasons (avoids leakage in logs/history).
   if (!board.mcpPublic) {
-    if (!board.mcpToken) {
-      // Advertise bearer auth scheme on 401 per RFC 6750.
-      event.node.res.setHeader('WWW-Authenticate', 'Bearer realm="moo-tasks", error="server_error"')
-      throw createError({ statusCode: 401, statusMessage: 'MCP endpoint is private and no token is configured. Please generate a token in board settings.' })
-    }
-
     const authHeader = event.node.req.headers.authorization || ''
     if (!authHeader.startsWith('Bearer ')) {
       event.node.res.setHeader('WWW-Authenticate', 'Bearer realm="moo-tasks"')
       throw createError({ statusCode: 401, statusMessage: 'Missing Authorization: Bearer <token> header' })
     }
     const token = authHeader.slice(7).trim()
+    const tokenDigest = hashBearerToken(token)
 
-    let authenticated = (token === board.mcpToken)
+    let authenticated = matchesBearerTokenDigest(token, board.mcpTokenDigest)
 
     if (!authenticated) {
-      const { boardTokens } = await import('../../../db/schema')
-      const tokenResults = await db.select().from(boardTokens).where(eq(boardTokens.token, token))
+      const tokenResults = await db.select().from(boardTokens).where(eq(boardTokens.tokenDigest, tokenDigest))
       if (tokenResults.length > 0 && tokenResults[0].boardId === boardId) {
         authenticated = true
       }
     }
 
     if (!authenticated && board.allowAccountToken) {
-      // Find user by account token
-      const userResults = await db.select().from(users).where(eq(users.accountToken, token))
+      const userResults = await db.select().from(users).where(and(
+        eq(users.accountTokenDigest, tokenDigest),
+        gt(users.accountTokenExpiresAt, new Date()),
+      ))
       const user = userResults[0]
       if (user) {
         // Check if user is a member of this board
-        const { boardMembers } = await import('../../../db/schema')
-        const { and } = await import('drizzle-orm')
         const membershipResults = await db.select().from(boardMembers)
           .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, user.id)))
         if (membershipResults.length > 0) {

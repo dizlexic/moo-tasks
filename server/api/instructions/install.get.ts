@@ -31,8 +31,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Board not found' })
   }
 
-  const mcpToken = board[0].mcpToken
-  
   // Base URL
   const baseUrl = getRequestURL(event).origin
   
@@ -42,9 +40,11 @@ export default defineEventHandler(async (event) => {
       "moo-tasks": {
         "type": "streamable-http",
         "url": `${baseUrl}/api/boards/${boardId}/mcp`,
-        "headers": {
-          "Authorization": `Bearer ${mcpToken}`
-        }
+        ...(board[0].mcpPublic ? {} : {
+          "headers": {
+            "Authorization": "Bearer <generate-a-token-in-board-settings>"
+          }
+        }),
       }
     }
   }

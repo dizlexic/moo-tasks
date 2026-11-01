@@ -18,14 +18,18 @@ export default defineEventHandler(async (event) => {
     .innerJoin(boardMembers, eq(boards.id, boardMembers.boardId))
     .where(eq(boardMembers.userId, userId))
 
-    return results.map(r => ({
-      ...r.board,
-      lastVisitedAt: r.lastVisitedAt,
-      lastActivityAt: r.board.lastActivityAt,
-      isFavorite: r.isFavorite,
-      favoritedAt: r.favoritedAt,
-      favoriteOrder: r.favoriteOrder
-    }))
+    return results.map(r => {
+      const { mcpToken, mcpTokenDigest, ...boardData } = r.board
+      return {
+        ...boardData,
+        mcpToken: null,
+        lastVisitedAt: r.lastVisitedAt,
+        lastActivityAt: r.board.lastActivityAt,
+        isFavorite: r.isFavorite,
+        favoritedAt: r.favoritedAt,
+        favoriteOrder: r.favoriteOrder
+      }
+    })
   } catch (e) {
     console.error('Error in /api/boards:', e);
     throw e;

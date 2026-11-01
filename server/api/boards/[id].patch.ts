@@ -35,5 +35,6 @@ export default defineEventHandler(async (event) => {
   })
   invalidateBoardMetadata(id)
   const results = await db.select().from(boards).where(eq(boards.id, id))
-  return results[0]
+  const { mcpToken, mcpTokenDigest, ...boardData } = results[0]
+  return { ...boardData, mcpToken: null }
 })

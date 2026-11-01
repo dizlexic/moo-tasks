@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const props = defineProps<{ boardId: string; mcpToken: string | null; isPublic: boolean }>()
+const props = defineProps<{ boardId: string; hasToken: boolean; isPublic: boolean }>()
 const emit = defineEmits<{ close: [], 'open-agents': [] }>()
 
 const origin = ref('')
@@ -117,7 +117,7 @@ const configSnippet = computed(() => {
             </div>
           </div>
 
-          <p v-if="!isPublic && !mcpToken" class="text-[11px] font-bold text-red-500 dark:text-neon-red/80 flex items-center gap-2 bg-red-500/5 p-3 rounded-xl border border-red-500/10">
+          <p v-if="!isPublic && !hasToken" class="text-[11px] font-bold text-red-500 dark:text-neon-red/80 flex items-center gap-2 bg-red-500/5 p-3 rounded-xl border border-red-500/10">
             <span>⚠️</span> This board is private. Generate a Bearer Token in settings to use this URL.
           </p>
         </section>

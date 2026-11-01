@@ -1,0 +1,2 @@
+ALTER TABLE `users` ADD `account_token_expires_at` timestamp;--> statement-breakpoint
+UPDATE `users` SET `account_token_expires_at` = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 90 DAY) WHERE `account_token_digest` IS NOT NULL;

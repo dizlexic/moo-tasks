@@ -1,31 +1,40 @@
-import { mysqlTable, varchar, text, timestamp, boolean, mysqlEnum, primaryKey, int, json } from 'drizzle-orm/mysql-core'
+import { mysqlTable, varchar, text, timestamp, boolean, mysqlEnum, primaryKey, int, json, uniqueIndex } from 'drizzle-orm/mysql-core'
 
 export const users = mysqlTable('users', {
   id: varchar('id', { length: 191 }).primaryKey(),
   email: varchar('email', { length: 191 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
   passwordHash: text('password_hash').notNull(),
+  // Legacy plaintext field; new account tokens are written only to the digest column.
   accountToken: text('account_token'),
+  accountTokenDigest: varchar('account_token_digest', { length: 64 }),
+  accountTokenExpiresAt: timestamp('account_token_expires_at'),
   isVerified: boolean('is_verified').notNull().default(false),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
-})
+}, (table) => [
+  uniqueIndex('users_account_token_digest_unique').on(table.accountTokenDigest),
+])
 
 export const boards = mysqlTable('boards', {
   id: varchar('id', { length: 191 }).primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   ownerId: varchar('owner_id', { length: 191 }).notNull().references(() => users.id),
+  // Legacy plaintext field; new board tokens are written only to the digest column.
   mcpToken: text('mcp_token'),
+  mcpTokenDigest: varchar('mcp_token_digest', { length: 64 }),
   mcpPublic: boolean('mcp_public').notNull().default(false),
   mcpEnabledFunctions: json('mcp_enabled_functions'),
   showTimeline: boolean('show_timeline').notNull().default(false),
   allowAiReview: boolean('allow_ai_review').notNull().default(false),
-  allowAccountToken: boolean('allow_account_token').notNull().default(true),
+  allowAccountToken: boolean('allow_account_token').notNull().default(false),
   lastActivityAt: timestamp('last_activity_at'),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
-})
+}, (table) => [
+  uniqueIndex('boards_mcp_token_digest_unique').on(table.mcpTokenDigest),
+])
 
 export const boardMembers = mysqlTable('board_members', {
   boardId: varchar('board_id', { length: 191 }).notNull().references(() => boards.id, { onDelete: 'cascade' }),
@@ -181,10 +190,14 @@ export const boardTokens = mysqlTable('board_tokens', {
   id: varchar('id', { length: 191 }).primaryKey(),
   boardId: varchar('board_id', { length: 191 }).notNull().references(() => boards.id, { onDelete: 'cascade' }),
   userId: varchar('user_id', { length: 191 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
-  token: text('token').notNull(),
+  // Legacy plaintext field; new member tokens are written only to the digest column.
+  token: text('token'),
+  tokenDigest: varchar('token_digest', { length: 64 }),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
-})
+}, (table) => [
+  uniqueIndex('board_tokens_token_digest_unique').on(table.tokenDigest),
+])
 
 export type BoardToken = typeof boardTokens.$inferSelect
 export type NewBoardToken = typeof boardTokens.$inferInsert

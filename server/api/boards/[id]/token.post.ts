@@ -3,6 +3,7 @@ import { eq, and } from 'drizzle-orm'
 import { db } from '../../../db'
 import { boards, boardMembers } from '../../../db/schema'
 import { generateId } from '../../../utils/id'
+import { hashBearerToken } from '../../../utils/token-digests'
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event)
@@ -16,7 +17,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const token = `mab_${generateId(32)}`
-  await db.update(boards).set({ mcpToken: token, updatedAt: new Date() }).where(eq(boards.id, id))
+  await db.update(boards).set({
+    mcpToken: null,
+    mcpTokenDigest: hashBearerToken(token),
+    updatedAt: new Date(),
+  }).where(eq(boards.id, id))
 
   return { token }
 })

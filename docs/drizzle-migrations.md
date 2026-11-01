@@ -147,6 +147,23 @@ Don't rename in place. Expand → migrate → contract:
   small and focused.
 - `RENAME COLUMN` requires MySQL 8.0+; older servers need `CHANGE COLUMN`.
 
+### Bearer-token digest conversion
+
+Migrations `0020_bitter_toxin` and `0021_exotic_thunderball` convert existing
+account, board, and member bearer tokens to SHA-256 digests, add unique indexes,
+and clear the legacy plaintext columns. Existing account tokens receive a
+90-day grace period starting when migration `0021` is applied; newly generated
+account tokens expire 90 days after creation. Board and member tokens remain
+revocable and board-scoped. Migration `0022_lying_wolfpack` changes the default
+so new boards do not accept account-wide tokens unless an owner opts in; it
+preserves existing boards' `allow_account_token` values.
+
+The production startup script runs `scripts/migrate.ts` before starting the
+application, so these migrations complete before the new digest-only handlers
+serve requests. If migration fails, startup stops; inspect partial MySQL DDL
+before retrying rather than starting the application against a half-migrated
+schema.
+
 ---
 
 ## 4. `db:push` vs `db:migrate`

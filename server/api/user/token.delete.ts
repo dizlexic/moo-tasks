@@ -6,7 +6,12 @@ import { users } from '../../db/schema'
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event)
   
-  await db.update(users).set({ accountToken: null, updatedAt: new Date() }).where(eq(users.id, session.user.id))
+  await db.update(users).set({
+    accountToken: null,
+    accountTokenDigest: null,
+    accountTokenExpiresAt: null,
+    updatedAt: new Date(),
+  }).where(eq(users.id, session.user.id))
   
   return { success: true }
 })

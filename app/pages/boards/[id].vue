@@ -9,15 +9,23 @@ const currentBoardName = useState<string | null>('currentBoardName')
 const { user } = useUserSession()
 const userEmail = computed(() => user.value?.email)
 
-const board = ref<(Board & { role: string, transfer: any }) | null>(null)
+const board = ref<(Board & { role: string, transfer: any, hasMcpToken: boolean }) | null>(null)
 const { fetchTasks, tasksByStatus, moveTask, createTask, updateTask, deleteTask, startSocket, stopSocket, tasks } = useTasks(boardId)
 const { tags, fetchTags } = useTags(boardId)
 const { mcpToken, tokenLoading, generateToken, generateMemberToken, revokeToken, revokeMemberToken, mcpConfig } = useBoardToken(boardId)
 const router = useRouter()
 
 const isOwner = computed(() => board.value?.role === 'owner')
-const generateTokenAction = computed(() => isOwner.value ? generateToken : generateMemberToken)
-const revokeTokenAction = computed(() => isOwner.value ? revokeToken : revokeMemberToken)
+
+async function generateTokenAction() {
+  await (isOwner.value ? generateToken() : generateMemberToken())
+  if (board.value) board.value.hasMcpToken = true
+}
+
+async function revokeTokenAction() {
+  await (isOwner.value ? revokeToken() : revokeMemberToken())
+  if (board.value) board.value.hasMcpToken = false
+}
 
 const boardLogs = ref<BoardLog[]>([])
 const exportComments = ref(false)
@@ -177,6 +185,20 @@ async function togglePublicMcp() {
   }
 }
 
+async function toggleAccountTokenAccess() {
+  if (!board.value || board.value.role !== 'owner') return
+  const newValue = !board.value.allowAccountToken
+  try {
+    const updated = await $fetch<Board & { role: string }>(`/api/boards/${boardId}`, {
+      method: 'PATCH',
+      body: { allowAccountToken: newValue }
+    })
+    board.value.allowAccountToken = updated.allowAccountToken
+  } catch (e: any) {
+    alert(e.data?.message || 'Failed to update account token access')
+  }
+}
+
 async function toggleMcpFunction(fn: string) {
   if (!board.value || board.value.role !== 'owner') return
   const currentFunctions = (board.value.mcpEnabledFunctions as Record<string, boolean>) || {}
@@ -238,10 +260,9 @@ async function exportBoard() {
 
 async function loadBoard() {
   try {
-    const data = await $fetch<Board & { role: string }>(`/api/boards/${boardId}`)
-    console.log('Board data', data)
+    const data = await $fetch<Board & { role: string, hasMcpToken: boolean }>(`/api/boards/${boardId}`)
     board.value = data
-    mcpToken.value = (data as any).mcpToken || null
+    mcpToken.value = null
   } catch {
     await navigateTo('/dashboard')
   }
@@ -372,7 +393,7 @@ onUnmounted(() => stopSocket())
     <McpHelpModal
       v-if="showHelpModal"
       :board-id="boardId"
-      :mcp-token="mcpToken"
+      :has-token="Boolean(mcpToken || board.hasMcpToken)"
       :is-public="board.mcpPublic"
       @close="showHelpModal = false"
       @open-agents="showAgentsMarkdown = true"
@@ -545,6 +566,17 @@ onUnmounted(() => stopSocket())
                   </button>
                 </div>
               </div>
+              <div v-else-if="board.hasMcpToken" class="space-y-3">
+                <p class="text-xs text-gray-600 dark:text-gray-400">A token is configured but is only shown once when generated. Rotate it to reveal a new token, or revoke it.</p>
+                <div class="flex gap-2">
+                  <button @click="generateTokenAction" :disabled="tokenLoading" class="flex-1 sm:flex-none text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-orange/20 bg-neon-orange/5 text-orange-600 dark:text-neon-orange hover:bg-neon-orange/15 transition-all disabled:opacity-50">
+                    🔄 Rotate
+                  </button>
+                  <button @click="revokeTokenAction" :disabled="tokenLoading" class="flex-1 sm:flex-none text-sm font-bold uppercase tracking-widest px-4 py-2.5 rounded-xl border border-neon-red/20 bg-neon-red/5 text-red-600 dark:text-neon-red hover:bg-neon-red/15 transition-all disabled:opacity-50">
+                    🗑 Revoke
+                  </button>
+                </div>
+              </div>
               <div v-else>
                 <button @click="generateTokenAction" :disabled="tokenLoading" class="text-sm font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl border border-neon-cyan/20 bg-neon-cyan/5 text-cyan-600 dark:text-neon-cyan hover:bg-neon-cyan/15 transition-all disabled:opacity-50 shadow-sm shadow-neon-cyan/5">
                   🔑 {{ board.role === 'owner' ? 'Generate Token' : 'Generate Personal Token' }}
@@ -570,6 +602,24 @@ onUnmounted(() => stopSocket())
                   <span
                     class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition duration-200 ease-in-out"
                     :class="board.mcpPublic ? 'translate-x-5' : 'translate-x-0'"
+                  />
+                </button>
+              </div>
+
+              <div class="mt-4 pt-4 border-t border-gray-100 dark:border-surface-border flex items-center justify-between">
+                <div class="pr-4">
+                  <label class="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 block mb-1">Allow Account Token Access</label>
+                  <p class="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed">Account-wide tokens can access this board only when explicitly enabled. Board tokens remain scoped to this board.</p>
+                </div>
+                <button
+                  @click="toggleAccountTokenAccess"
+                  class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                  :class="board.allowAccountToken ? 'bg-neon-cyan shadow-[0_0_10px_rgba(0,240,255,0.3)]' : 'bg-gray-200 dark:bg-surface-raised'"
+                  :aria-pressed="board.allowAccountToken"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition duration-200 ease-in-out"
+                    :class="board.allowAccountToken ? 'translate-x-5' : 'translate-x-0'"
                   />
                 </button>
               </div>

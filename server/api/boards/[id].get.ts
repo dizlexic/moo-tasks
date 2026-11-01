@@ -6,13 +6,10 @@ import { logBoardEvent } from '../../utils/logs'
 import { getHeader } from 'h3'
 
 export default defineEventHandler(async (event) => {
-  console.log('Fetching board', getRouterParam(event, 'id'))
   const session = await requireUserSession(event)
-  console.log('Session', session)
   const id = getRouterParam(event, 'id')!
 
   const boardsResult = await db.select().from(boards).where(eq(boards.id, id))
-  console.log('Boards result', boardsResult)
   const board = boardsResult[0]
   if (!board) {
     throw createError({ statusCode: 404, statusMessage: 'Board not found' })
@@ -20,7 +17,6 @@ export default defineEventHandler(async (event) => {
 
   const membershipResult = await db.select().from(boardMembers)
     .where(and(eq(boardMembers.boardId, id), eq(boardMembers.userId, session.user.id)))
-  console.log('Membership result', membershipResult)
   const membership = membershipResult[0]
   if (!membership) {
     throw createError({ statusCode: 403, statusMessage: 'Not a member of this board' })
@@ -29,14 +25,12 @@ export default defineEventHandler(async (event) => {
   const pendingTransfer = await db.select().from(boardTransfers)
     .where(and(eq(boardTransfers.boardId, id), eq(boardTransfers.status, 'pending')))
   const transfer = pendingTransfer[0]
-  console.log('Transfer', transfer)
 
-  let memberToken = null
+  let hasMcpToken = Boolean(board.mcpTokenDigest)
   if (membership.role !== 'owner') {
     const memberTokenResult = await db.select().from(boardTokens)
       .where(and(eq(boardTokens.boardId, id), eq(boardTokens.userId, session.user.id)))
-    memberToken = memberTokenResult[0]?.token
-    console.log('Member token for user', session.user.id, 'is', memberToken)
+    hasMcpToken = Boolean(memberTokenResult[0]?.tokenDigest)
   }
 
   await db.update(boardMembers)
@@ -51,12 +45,12 @@ export default defineEventHandler(async (event) => {
     data: { userAgent: getHeader(event, 'user-agent') }
   })
 
-  const { mcpToken, ...boardData } = board
+  const { mcpToken, mcpTokenDigest, ...boardData } = board
   return {
     ...boardData,
     role: membership.role,
-    ...(membership.role === 'owner' ? { mcpToken } : {}),
-    ...(membership.role !== 'owner' ? { mcpToken: memberToken } : {}),
+    mcpToken: null,
+    hasMcpToken,
     transfer: transfer || null,
   }
 })

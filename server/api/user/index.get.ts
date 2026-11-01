@@ -17,7 +17,8 @@ export default defineEventHandler(async (event) => {
     id: user.id,
     email: user.email,
     name: user.name,
-    hasAccountToken: !!user.accountToken,
+    hasAccountToken: !!user.accountTokenDigest && !!user.accountTokenExpiresAt && user.accountTokenExpiresAt > new Date(),
+    accountTokenExpiresAt: user.accountTokenExpiresAt,
     // We don't return the token itself for security, only that it exists.
     // The user must generate a new one to see it.
   }

@@ -1,9 +1,10 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { eq } from 'drizzle-orm'
+import { and, eq, gt } from 'drizzle-orm'
 import { db } from '../db'
 import { users } from '../db/schema'
 import { createGlobalMcpServer } from '../utils/global-mcp'
+import { hashBearerToken } from '../utils/token-digests'
 
 export default defineEventHandler(async (event) => {
   const authHeader = event.node.req.headers.authorization || ''
@@ -11,7 +12,10 @@ export default defineEventHandler(async (event) => {
 
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7).trim()
-    const userResults = await db.select().from(users).where(eq(users.accountToken, token))
+    const userResults = await db.select().from(users).where(and(
+      eq(users.accountTokenDigest, hashBearerToken(token)),
+      gt(users.accountTokenExpiresAt, new Date()),
+    ))
     const user = userResults[0]
     if (user) {
       userId = user.id

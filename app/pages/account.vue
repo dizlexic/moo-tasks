@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { user } = useUserSession()
-const accountInfo = ref<{ id: string, email: string, name: string, hasAccountToken: boolean } | null>(null)
+const accountInfo = ref<{ id: string, email: string, name: string, hasAccountToken: boolean, accountTokenExpiresAt: string | null } | null>(null)
 const mcpToken = ref<string | null>(null)
 const loading = ref(false)
 const tokenLoading = ref(false)
@@ -25,10 +25,13 @@ async function fetchAccountInfo() {
 async function generateToken() {
   tokenLoading.value = true
   try {
-    const res = await $fetch<{ token: string }>('/api/user/token', { method: 'POST' })
+    const res = await $fetch<{ token: string, expiresAt: string }>('/api/user/token', { method: 'POST' })
     mcpToken.value = res.token
     showToken.value = true
-    if (accountInfo.value) accountInfo.value.hasAccountToken = true
+    if (accountInfo.value) {
+      accountInfo.value.hasAccountToken = true
+      accountInfo.value.accountTokenExpiresAt = res.expiresAt
+    }
   } catch (e) {
     alert('Failed to generate token')
   } finally {
@@ -43,7 +46,10 @@ async function revokeToken() {
     await $fetch('/api/user/token', { method: 'DELETE' })
     mcpToken.value = null
     showToken.value = false
-    if (accountInfo.value) accountInfo.value.hasAccountToken = false
+    if (accountInfo.value) {
+      accountInfo.value.hasAccountToken = false
+      accountInfo.value.accountTokenExpiresAt = null
+    }
   } catch (e) {
     alert('Failed to revoke token')
   } finally {
@@ -138,7 +144,10 @@ async function copyMcpConfig() {
         <div class="space-y-6">
           <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
             Generate a global account token to allow an AI agent to manage <strong class="text-gray-900 dark:text-white">all your boards</strong>.
-            This token also enables global tools like creating new boards via the MCP server.
+            This token also enables global tools like creating new boards via the MCP server. Account tokens expire after 90 days.
+          </p>
+          <p v-if="accountInfo.hasAccountToken && accountInfo.accountTokenExpiresAt" class="text-xs text-gray-500 dark:text-gray-400">
+            Current token expires {{ new Date(accountInfo.accountTokenExpiresAt).toLocaleString() }}.
           </p>
 
           <div v-if="accountInfo.hasAccountToken || mcpToken" class="space-y-4">

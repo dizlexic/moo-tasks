@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '#server/db'
 import { boards } from '#server/db/schema'
+import { matchesBearerTokenDigest } from '#server/utils/token-digests'
 import fs from 'node:fs'
 import path from 'node:path'
 import { getRouterParam } from 'h3'
@@ -17,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   // Authorization check
   if (!board.mcpPublic) {
-    if (!board.mcpToken) {
+    if (!board.mcpTokenDigest) {
       throw createError({ statusCode: 401, statusMessage: 'MCP endpoint is private and no token is configured.' })
     }
 
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
     }
     const token = authHeader.slice(7).trim()
 
-    if (token !== board.mcpToken) {
+    if (!matchesBearerTokenDigest(token, board.mcpTokenDigest)) {
       throw createError({ statusCode: 401, statusMessage: 'Invalid bearer token' })
     }
   }
@@ -41,9 +42,11 @@ export default defineEventHandler(async (event) => {
       "moo-tasks": {
         "type": "streamable-http",
         "url": `${baseUrl}/api/boards/${boardId}/mcp`,
-        "headers": {
-          "Authorization": `Bearer ${board.mcpToken}`
-        }
+        ...(board.mcpPublic ? {} : {
+          "headers": {
+            "Authorization": "Bearer <your-bearer-token>"
+          }
+        }),
       }
     }
   }

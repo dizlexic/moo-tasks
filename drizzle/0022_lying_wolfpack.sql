@@ -1,0 +1,1 @@
+ALTER TABLE `boards` MODIFY COLUMN `allow_account_token` boolean NOT NULL DEFAULT false;

@@ -16,11 +16,9 @@ export function useBoardToken(boardId: string) {
 
   async function generateMemberToken() {
     tokenLoading.value = true
-    console.log('Generating member token')
     try {
       const res = await $fetch<{ token: string }>(`/api/boards/${boardId}/member-token`, { method: 'POST' })
       mcpToken.value = res.token
-      console.log('Member token generated', res.token)
     } finally {
       tokenLoading.value = false
     }
@@ -47,11 +45,6 @@ export function useBoardToken(boardId: string) {
   }
 
   const mcpConfig = computed(() => {
-    // ...
-    // Note: I also need to update this to handle both shared and personal token.
-    // Actually, `mcpToken.value` will just be the token, so `mcpConfig` should just work!
-    // The `mcpToken.value` is already updated in the functions.
-    // ...
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const server = {
       type: 'streamable-http',

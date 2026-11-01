@@ -3,6 +3,7 @@ import { eq, and } from 'drizzle-orm'
 import { db } from '../../../db'
 import { boardMembers, boardTokens } from '../../../db/schema'
 import { generateId } from '../../../utils/id'
+import { hashBearerToken } from '../../../utils/token-digests'
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event)
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
   if (existingToken.length > 0) {
     // Update existing
     await db.update(boardTokens)
-      .set({ token, updatedAt: new Date() })
+      .set({ token: null, tokenDigest: hashBearerToken(token), updatedAt: new Date() })
       .where(eq(boardTokens.id, existingToken[0].id))
   } else {
     // Insert new
@@ -33,7 +34,8 @@ export default defineEventHandler(async (event) => {
       id: generateId(16),
       boardId: id,
       userId: session.user.id,
-      token,
+      token: null,
+      tokenDigest: hashBearerToken(token),
       createdAt: new Date(),
       updatedAt: new Date()
     })

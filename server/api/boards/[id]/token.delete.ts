@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Only the board owner can manage tokens' })
   }
 
-  await db.update(boards).set({ mcpToken: null, updatedAt: new Date() }).where(eq(boards.id, id))
+  await db.update(boards).set({ mcpToken: null, mcpTokenDigest: null, updatedAt: new Date() }).where(eq(boards.id, id))
 
   return { success: true }
 })
