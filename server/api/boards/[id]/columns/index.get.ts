@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../../../../db';
-import { boardColumns } from '../../../../db/schema';
+import { boardColumns, boards } from '../../../../db/schema';
 import { nanoid } from 'nanoid';
 
 export default defineEventHandler(async (event) => {
@@ -16,7 +16,12 @@ export default defineEventHandler(async (event) => {
         { id: nanoid(12), boardId, name: 'Review', order: 3, status: 'review' as const },
         { id: nanoid(12), boardId, name: 'Done', order: 4, status: 'done' as const },
       ];
-      await db.insert(boardColumns).values(defaultCols.map(c => ({...c, createdAt: new Date(), updatedAt: new Date()})));
+      await db.transaction(async (tx) => {
+        await tx.insert(boardColumns).values(defaultCols.map(c => ({ ...c, createdAt: new Date(), updatedAt: new Date() })));
+        await tx.update(boards)
+          .set({ mcpMetadataVersion: sql`${boards.mcpMetadataVersion} + 1` })
+          .where(eq(boards.id, boardId));
+      });
       columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId)).orderBy(boardColumns.order);
   }
   

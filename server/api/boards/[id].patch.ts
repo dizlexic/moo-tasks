@@ -1,9 +1,10 @@
 import { readBody, getRouterParam } from 'h3'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { boards, boardMembers } from '../../db/schema'
 import { logBoardEvent } from '../../utils/logs'
 import { invalidateBoardMetadata } from '../../utils/board-mcp'
+import { MCP_FUNCTIONS } from '#shared/mcp-capabilities'
 
 export default defineEventHandler(async (event) => {
   const session = await requireUserSession(event)
@@ -21,9 +22,21 @@ export default defineEventHandler(async (event) => {
   if (body.name && typeof body.name === 'string') updates.name = body.name.trim()
   if (typeof body.description === 'string') updates.description = body.description.trim()
   if (typeof body.mcpPublic === 'boolean') updates.mcpPublic = body.mcpPublic
+  if (body.mcpEnabledFunctions !== undefined) {
+    if (!body.mcpEnabledFunctions || typeof body.mcpEnabledFunctions !== 'object' || Array.isArray(body.mcpEnabledFunctions)
+      || Object.entries(body.mcpEnabledFunctions).some(([name, enabled]) =>
+        !MCP_FUNCTIONS.includes(name as typeof MCP_FUNCTIONS[number]) || typeof enabled !== 'boolean'
+      )) {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid MCP function settings' })
+    }
+    updates.mcpEnabledFunctions = body.mcpEnabledFunctions
+  }
   if (typeof body.showTimeline === 'boolean') updates.showTimeline = body.showTimeline
   if (typeof body.allowAiReview === 'boolean') updates.allowAiReview = body.allowAiReview
   if (typeof body.allowAccountToken === 'boolean') updates.allowAccountToken = body.allowAccountToken
+  if (typeof body.mcpPublic === 'boolean' || body.mcpEnabledFunctions !== undefined) {
+    updates.mcpMetadataVersion = sql`${boards.mcpMetadataVersion} + 1`
+  }
 
   await db.update(boards).set(updates).where(eq(boards.id, id))
   await logBoardEvent({

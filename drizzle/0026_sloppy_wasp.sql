@@ -1,0 +1,1 @@
+ALTER TABLE `boards` ADD `mcp_metadata_version` int DEFAULT 0 NOT NULL;

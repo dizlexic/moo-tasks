@@ -26,6 +26,7 @@ export const boards = mysqlTable('boards', {
   mcpTokenDigest: varchar('mcp_token_digest', { length: 64 }),
   mcpPublic: boolean('mcp_public').notNull().default(false),
   mcpEnabledFunctions: json('mcp_enabled_functions'),
+  mcpMetadataVersion: int('mcp_metadata_version').notNull().default(0),
   showTimeline: boolean('show_timeline').notNull().default(false),
   allowAiReview: boolean('allow_ai_review').notNull().default(false),
   allowAccountToken: boolean('allow_account_token').notNull().default(false),

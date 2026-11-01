@@ -74,6 +74,28 @@ describe('board-mcp utils', () => {
       expect(registeredTools).toHaveProperty('get-task')
     })
 
+    it('refreshes cached column permissions when another instance updates the metadata version', async () => {
+      const selectResults = [
+        [{ id: 'shared-board', mcpMetadataVersion: 1, mcpEnabledFunctions: null }],
+        [{ status: 'todo', permissions: { view: true } }],
+        [{ id: 'shared-board', mcpMetadataVersion: 2, mcpEnabledFunctions: null }],
+        [{ status: 'todo', permissions: { view: false } }],
+        [{ id: 'task-1', boardId: 'shared-board', status: 'todo' }],
+      ]
+      ;(db.select as any).mockImplementation(() => ({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockImplementation(() => Promise.resolve(selectResults.shift())),
+      }))
+
+      await createBoardMcpServer('shared-board')
+      const server = await createBoardMcpServer('shared-board')
+      expect(db.select).toHaveBeenCalledTimes(4)
+      // @ts-ignore
+      const result = await server._registeredTools['get-task'].handler({ taskId: 'task-1' })
+
+      expect(result).toMatchObject({ isError: true, content: [{ text: JSON.stringify({ error: 'Permission denied' }) }] })
+    })
+
     it('keeps private server registrations aligned with the shared tool registry and discovery list', async () => {
       const mockBoard = { id: 'registry-board', mcpEnabledFunctions: null }
       ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
@@ -761,30 +783,30 @@ describe('board-mcp utils', () => {
       expect(paginated.content[0].text).toContain('"id":"d2"')
     })
 
-    it('caches board metadata without additional database reads', async () => {
+    it('checks the shared metadata version while reusing cached columns', async () => {
       const mockBoard = {
         id: 'board-cache-test',
+        mcpMetadataVersion: 1,
         mcpEnabledFunctions: { 'list-tasks': true },
         allowAiReview: false,
       }
       const mockColumns = [{ status: 'todo', permissions: { view: true } }]
 
-      // First create populates cache (two selects)
-      ;(db.select as any).mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue([mockBoard]),
-      }).mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue(mockColumns),
+      ;(db.select as any).mockImplementation(() => {
+        const result = db.select.mock.calls.length === 2 ? mockColumns : [mockBoard]
+        return {
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue(result),
+        }
       })
 
       await createBoardMcpServer('board-cache-test')
 
-      // Subsequent creates should hit cache (no more select mocks needed for this board in this test)
+      // Subsequent creates check the shared version but reuse cached columns.
       for (let i = 0; i < 50; i++) {
         await createBoardMcpServer('board-cache-test')
       }
-      expect(db.select).toHaveBeenCalledTimes(2)
+      expect(db.select).toHaveBeenCalledTimes(52)
     })
   })
 })

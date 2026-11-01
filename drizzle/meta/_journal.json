@@ -183,6 +183,13 @@
       "when": 1793517271620,
       "tag": "0025_tan_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1793519087137,
+      "tag": "0026_sloppy_wasp",
+      "breakpoints": true
     }
   ]
 }

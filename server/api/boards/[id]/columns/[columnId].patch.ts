@@ -1,6 +1,6 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { db } from '#server/db';
-import { boardColumns, boardMembers } from '#server/db/schema';
+import { boardColumns, boardMembers, boards } from '#server/db/schema';
 import { invalidateBoardMetadata } from '#server/utils/board-mcp';
 
 export default defineEventHandler(async (event) => {
@@ -36,9 +36,15 @@ export default defineEventHandler(async (event) => {
     };
   }
 
-  const updatedColumn = await db.update(boardColumns)
-    .set(updateData)
-    .where(and(eq(boardColumns.id, columnId), eq(boardColumns.boardId, boardId)));
+  const updatedColumn = await db.transaction(async (tx) => {
+    const result = await tx.update(boardColumns)
+      .set(updateData)
+      .where(and(eq(boardColumns.id, columnId), eq(boardColumns.boardId, boardId)));
+    await tx.update(boards)
+      .set({ mcpMetadataVersion: sql`${boards.mcpMetadataVersion} + 1` })
+      .where(eq(boards.id, boardId));
+    return result;
+  });
 
   invalidateBoardMetadata(boardId);
   return updatedColumn;

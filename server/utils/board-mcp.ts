@@ -45,9 +45,9 @@ async function getInstructionContent(boardId: string, type: 'agent_instructions'
   return globalInstr?.content || ''
 }
 
-// Bounded process-local LRU for board metadata; changes may take up to 30 seconds to reach each instance.
-const metadataCache = new Map<string, { board: any; columns: any; expires: number }>()
-const CACHE_TTL_MS = 30_000 // 30 seconds; metadata (cols, enabled funcs) rarely changes
+// Bounded process-local LRU for column metadata. Board settings and the metadata version are read per request.
+const metadataCache = new Map<string, { version: number; columns: any; expires: number }>()
+const CACHE_TTL_MS = 30_000
 const METADATA_CACHE_MAX_SIZE = 500
 
 export function invalidateBoardMetadata(boardId?: string) {
@@ -58,9 +58,9 @@ export function invalidateBoardMetadata(boardId?: string) {
   }
 }
 
-function cacheBoardMetadata(boardId: string, board: any, columns: any) {
+function cacheBoardMetadata(boardId: string, version: number, columns: any) {
   metadataCache.delete(boardId)
-  metadataCache.set(boardId, { board, columns, expires: Date.now() + CACHE_TTL_MS })
+  metadataCache.set(boardId, { version, columns, expires: Date.now() + CACHE_TTL_MS })
   while (metadataCache.size > METADATA_CACHE_MAX_SIZE) {
     const oldestBoardId = metadataCache.keys().next().value
     if (oldestBoardId === undefined) break
@@ -69,21 +69,25 @@ function cacheBoardMetadata(boardId: string, board: any, columns: any) {
 }
 
 export async function createBoardMcpServer(boardId: string, publicReadOnly?: boolean): Promise<McpServer> {
-  let board: any
-  let columns: any
+  const board = (await db.select({
+    ownerId: boards.ownerId,
+    mcpPublic: boards.mcpPublic,
+    mcpEnabledFunctions: boards.mcpEnabledFunctions,
+    mcpMetadataVersion: boards.mcpMetadataVersion,
+    allowAiReview: boards.allowAiReview,
+  }).from(boards).where(eq(boards.id, boardId)))[0]
+  if (!board) throw new Error('Board not found')
 
+  let columns: any
   const cached = metadataCache.get(boardId)
-  if (cached && cached.expires > Date.now()) {
+  if (cached && cached.version === board.mcpMetadataVersion && cached.expires > Date.now()) {
     metadataCache.delete(boardId)
     metadataCache.set(boardId, cached)
-    board = cached.board
     columns = cached.columns
   } else {
     if (cached) metadataCache.delete(boardId)
-    board = (await db.select().from(boards).where(eq(boards.id, boardId)))[0]
-    if (!board) throw new Error('Board not found')
     columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId))
-    cacheBoardMetadata(boardId, board, columns)
+    cacheBoardMetadata(boardId, board.mcpMetadataVersion, columns)
   }
 
   const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
