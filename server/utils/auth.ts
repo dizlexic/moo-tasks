@@ -17,7 +17,7 @@ export const createEmailVerificationToken = async (userId: string) => {
 
 export const createPasswordResetToken = async (userId: string) => {
   const token = generateId(32)
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 1) // 1 hour
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60) // 1 hour
   await db.insert(passwordResetTokens).values({
     id: generateId(),
     userId,
