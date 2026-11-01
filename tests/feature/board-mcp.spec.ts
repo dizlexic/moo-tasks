@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createBoardMcpServer, invalidateBoardMetadata } from '../../server/utils/board-mcp'
 import { MCP_CAPABILITIES, MCP_FUNCTIONS } from '../../shared/mcp-capabilities'
 import { db } from '../../server/db'
+import { logBoardEvent } from '../../server/utils/logs'
 
 vi.mock('../../server/db', () => ({
   db: {
@@ -126,6 +127,26 @@ describe('board-mcp utils', () => {
         .toBe((initialServer as any)._registeredPrompts['task-workflow'].callback)
     })
 
+    it('keeps cached handlers isolated and reusable across principals', async () => {
+      const board = { id: 'principal-cache-board', ownerId: 'owner-1', mcpMetadataVersion: 1, mcpEnabledFunctions: null }
+      const mockQuery = (result: unknown[]) => ({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue(result),
+      })
+      ;(db.select as any)
+        .mockReturnValueOnce(mockQuery([board]))
+        .mockReturnValueOnce(mockQuery([]))
+        .mockImplementation(() => mockQuery([board]))
+
+      const firstPrincipalServer = await createBoardMcpServer(board.id, false, 'user:first')
+      const secondPrincipalServer = await createBoardMcpServer(board.id, false, 'user:second')
+      const reusedFirstPrincipalServer = await createBoardMcpServer(board.id, false, 'user:first')
+
+      const firstHandler = (firstPrincipalServer as any)._registeredTools['get-task'].handler
+      expect((secondPrincipalServer as any)._registeredTools['get-task'].handler).not.toBe(firstHandler)
+      expect((reusedFirstPrincipalServer as any)._registeredTools['get-task'].handler).toBe(firstHandler)
+    })
+
     it('rebuilds registrations when uncoupled board behavior settings change', async () => {
       const selectResults = [
         [{ id: 'review-setting-board', ownerId: 'owner-1', mcpMetadataVersion: 1, mcpEnabledFunctions: null, allowAiReview: false }],
@@ -158,6 +179,101 @@ describe('board-mcp utils', () => {
       expect(MCP_FUNCTIONS).toEqual(MCP_CAPABILITIES.map(capability => capability.name))
       expect(registeredNames).toContain('generate-changelog')
       expect(registeredNames).toContain('add-comment-with-attachment')
+    })
+
+    it('omits disabled tools, resources, and prompts from discovery and refreshes when settings change', async () => {
+      const board = { id: 'disabled-capabilities-board', mcpMetadataVersion: 1, mcpEnabledFunctions: null }
+      const disabledBoard = {
+        ...board,
+        mcpEnabledFunctions: {
+          'get-task': false,
+          'add-comment': false,
+          'board-state': false,
+          'task-workflow': false,
+        },
+      }
+      const mockQuery = (result: unknown[]) => ({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue(result),
+      })
+      ;(db.select as any)
+        .mockReturnValueOnce(mockQuery([board]))
+        .mockReturnValueOnce(mockQuery([]))
+        .mockReturnValueOnce(mockQuery([disabledBoard]))
+
+      const initialServer = await createBoardMcpServer(board.id)
+      const disabledServer = await createBoardMcpServer(board.id)
+
+      expect(initialServer._registeredTools['get-task']).toBeDefined()
+      expect(disabledServer._registeredTools).not.toHaveProperty('get-task')
+      expect(disabledServer._registeredTools).not.toHaveProperty('add-comment')
+      expect(disabledServer._registeredTools).not.toHaveProperty('add-comment-with-attachment')
+      expect(disabledServer._registeredResources).not.toHaveProperty(`moo-tasks://${board.id}/board-state`)
+      expect(disabledServer._registeredPrompts).not.toHaveProperty('task-workflow')
+    })
+
+    it('keeps the todo default page size consistent with offset and rejects mixed pagination modes', async () => {
+      const board = { id: 'pagination-contract-board', mcpEnabledFunctions: null }
+      const query = {
+        limit: vi.fn(),
+        offset: vi.fn(),
+      }
+      query.limit.mockReturnValue(query)
+      query.offset.mockResolvedValue([])
+      ;(db.select as any)
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([board]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([{ status: 'todo', permissions: { view: true } }]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), orderBy: vi.fn().mockReturnThis(), limit: query.limit, offset: query.offset })
+
+      const server = await createBoardMcpServer(board.id)
+      const listTasks = server._registeredTools['list-tasks'].handler
+      await listTasks({ status: 'todo', offset: 1 })
+
+      expect(query.limit).toHaveBeenCalledWith(11)
+      expect(query.offset).toHaveBeenCalledWith(1)
+
+      const selectCountBeforeInvalidCall = vi.mocked(db.select).mock.calls.length
+      const invalidTaskPage = await listTasks({ status: 'todo', cursor: { order: 1, boardTaskId: 1 }, offset: 0 })
+      expect(invalidTaskPage.isError).toBe(true)
+      expect(vi.mocked(db.select).mock.calls).toHaveLength(selectCountBeforeInvalidCall)
+    })
+
+    it('rejects mixed cursor and offset pagination for comments', async () => {
+      const board = { id: 'comment-pagination-contract-board', mcpEnabledFunctions: null }
+      ;(db.select as any)
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([board]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([]) })
+
+      const server = await createBoardMcpServer(board.id)
+      const getComments = server._registeredTools['get-comments'].handler
+      const selectCountBeforeInvalidCall = vi.mocked(db.select).mock.calls.length
+      const result = await getComments({ taskId: 'task-1', cursor: { createdAt: '2026-10-31T12:00:00.000Z', id: 'comment-1' }, offset: 0 })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.parse(result.content[0].text).error).toBe('cursor and offset cannot be used together')
+      expect(vi.mocked(db.select).mock.calls).toHaveLength(selectCountBeforeInvalidCall)
+    })
+
+    it('logs the authenticated principal and marks the caller-provided comment author as unverified', async () => {
+      const board = { id: 'attribution-board', mcpEnabledFunctions: null }
+      ;(db.select as any)
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([board]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([{ status: 'todo', permissions: { view: true } }]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'todo' }]) })
+      const insertValues = vi.fn().mockResolvedValue(undefined)
+      ;(db.insert as any).mockReturnValue({ values: insertValues })
+
+      const server = await createBoardMcpServer(board.id, false, 'user:verified-principal')
+      const addComment = server._registeredTools['add-comment'].handler
+      await addComment({ taskId: 'task-1', author: 'Unverified Agent Name', content: 'A comment' })
+
+      expect(logBoardEvent).toHaveBeenCalledWith(expect.objectContaining({
+        boardId: board.id,
+        actor: 'user:verified-principal',
+        action: 'add-comment',
+        data: { taskId: 'task-1', unverifiedDisplayName: 'Unverified Agent Name' },
+      }))
+      expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ author: 'Unverified Agent Name' }))
     })
 
     it('should expose only read-only tools for public boards', async () => {

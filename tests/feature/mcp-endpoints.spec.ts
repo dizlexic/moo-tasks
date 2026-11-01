@@ -134,21 +134,21 @@ describe('MCP endpoint authorization', () => {
 
     await (boardMcpEndpoint as any)(event)
 
-    expect(createBoardMcpServer).toHaveBeenCalledWith('board-1', false)
+    expect(createBoardMcpServer).toHaveBeenCalledWith('board-1', false, 'board-token')
     expect(endpointState.transportRequests).toEqual([body])
   })
 
   it('allows a board member token only when it belongs to the requested board', async () => {
     mockSelectResults(
       [{ id: 'board-1', mcpPublic: false, mcpTokenDigest: null, allowAccountToken: false }],
-      [{ boardId: 'board-1', tokenDigest: hashBearerToken('member-secret') }],
+      [{ boardId: 'board-1', userId: 'member-1', tokenDigest: hashBearerToken('member-secret') }],
     )
     const event = createEvent()
     event.node.req.headers.authorization = 'Bearer member-secret'
 
     await (boardMcpEndpoint as any)(event)
 
-    expect(createBoardMcpServer).toHaveBeenCalledWith('board-1', false)
+    expect(createBoardMcpServer).toHaveBeenCalledWith('board-1', false, 'user:member-1')
   })
 
   it('rejects a board member token issued for a different board', async () => {
@@ -175,7 +175,7 @@ describe('MCP endpoint authorization', () => {
 
     await (boardMcpEndpoint as any)(event)
 
-    expect(createBoardMcpServer).toHaveBeenCalledWith('board-1', false)
+    expect(createBoardMcpServer).toHaveBeenCalledWith('board-1', false, 'user:user-1')
   })
 
   it('rejects account tokens when the user is not a board member', async () => {
@@ -236,7 +236,7 @@ describe('MCP endpoint authorization', () => {
 
     await (boardMcpEndpoint as any)(event)
 
-    expect(createBoardMcpServer).toHaveBeenCalledWith('board-1', true)
+    expect(createBoardMcpServer).toHaveBeenCalledWith('board-1', true, 'public')
     expect(endpointState.transportRequests).toEqual([body])
     expect(createdBoardServers[0]._registeredTools['create-task']).toBeUndefined()
     expect(createdBoardServers[0]._registeredTools['list-tasks']).toBeDefined()

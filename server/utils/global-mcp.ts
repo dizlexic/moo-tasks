@@ -52,7 +52,7 @@ export async function createGlobalMcpServer(userId?: string): Promise<McpServer>
         async ({ name, description }) => {
           const newBoard = await createBoardWithDefaultColumns({ name, description, ownerId: userId })
 
-          void logBoardEvent({ boardId: newBoard.id, type: 'user_action', actor: 'AI Agent', action: 'board:created', data: { name: newBoard.name } })
+          void logBoardEvent({ boardId: newBoard.id, type: 'user_action', actor: `user:${userId}`, action: 'board:created', data: { name: newBoard.name } })
 
           return { content: [{ type: 'text', text: JSON.stringify({ message: 'Board created successfully', board: newBoard }) }] }
         }

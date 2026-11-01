@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
   if (!board) {
     throw createError({ statusCode: 404, statusMessage: 'Board not found' })
   }
+  let principal = board.mcpPublic ? 'public' : 'board-token'
 
   // Per MCP spec (2025-11-25 / basic), authorization MUST be sent via the
   // standard HTTP `Authorization: Bearer <token>` header. We no longer accept
@@ -37,6 +38,7 @@ export default defineEventHandler(async (event) => {
       const tokenResults = await db.select().from(boardTokens).where(eq(boardTokens.tokenDigest, tokenDigest))
       if (tokenResults.length > 0 && tokenResults[0].boardId === boardId) {
         authenticated = true
+        principal = `user:${tokenResults[0].userId}`
       }
     }
 
@@ -52,6 +54,7 @@ export default defineEventHandler(async (event) => {
           .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, user.id)))
         if (membershipResults.length > 0) {
           authenticated = true
+          principal = `user:${user.id}`
         }
       }
     }
@@ -74,9 +77,9 @@ export default defineEventHandler(async (event) => {
     void logBoardEvent({
       boardId,
       type: 'agent_connection',
-      actor: req.headers['user-agent'] || 'Unknown Agent',
+      actor: principal,
       action: 'connect',
-      data: { method: 'SSE' }
+      data: { method: 'SSE', unverifiedUserAgent: req.headers['user-agent'] || null }
     })
   }
 
@@ -99,7 +102,7 @@ export default defineEventHandler(async (event) => {
 
     // Create a fresh transport and server for each request (stateless mode).
     // The MCP SDK requires a new transport instance per request in stateless mode.
-    const mcpServer = await createBoardMcpServer(boardId, board.mcpPublic)
+    const mcpServer = await createBoardMcpServer(boardId, board.mcpPublic, principal)
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined, // stateless mode
     })
