@@ -1,0 +1,1 @@
+CREATE INDEX `tasks_board_order_task_id_idx` ON `tasks` (`board_id`,`order`,`board_task_id`);

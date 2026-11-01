@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { eq, and, or, like, isNull, inArray, asc, desc, gte, ne } from 'drizzle-orm'
+import { eq, and, or, like, isNull, inArray, asc, desc, gte, gt, lt, ne, count } from 'drizzle-orm'
 import { db } from '../db'
 import { tasks, comments, instructions, boards, boardColumns, users, boardMembers, tags, taskTags, plans, planTasks } from '../db/schema'
 import { generateId } from './id'
@@ -19,6 +19,9 @@ const descriptionSchema = z.string().max(MCP_MAX_DESCRIPTION_LENGTH)
 const commentAuthorSchema = z.string().trim().min(1).max(255)
 const commentContentSchema = z.string().min(1).max(MCP_MAX_COMMENT_LENGTH)
 const isoDateTimeSchema = z.string().datetime({ offset: true })
+const taskCursorSchema = z.object({ order: z.number().int(), boardTaskId: z.number().int().positive() })
+const commentCursorSchema = z.object({ createdAt: isoDateTimeSchema, id: taskIdSchema })
+const changelogCursorSchema = z.object({ updatedAt: isoDateTimeSchema, id: taskIdSchema })
 
 function invalidSinceResult() {
   return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'since must be a valid ISO 8601 date-time' }) }], isError: true }
@@ -60,11 +63,10 @@ export const MCP_FUNCTIONS = [
 
 export type McpFunction = typeof MCP_FUNCTIONS[number]
 
-// Simple in-memory TTL cache for board metadata (board row + columns/permissions/mcp config).
-// Avoids repeated SELECTs on every stateless MCP request (createBoardMcpServer called per req).
-// TTL keeps it fresh-ish; invalidate on mutations for correctness.
+// Bounded process-local LRU for board metadata; changes may take up to 30 seconds to reach each instance.
 const metadataCache = new Map<string, { board: any; columns: any; expires: number }>()
 const CACHE_TTL_MS = 30_000 // 30 seconds; metadata (cols, enabled funcs) rarely changes
+const METADATA_CACHE_MAX_SIZE = 500
 
 export function invalidateBoardMetadata(boardId?: string) {
   if (boardId) {
@@ -74,23 +76,32 @@ export function invalidateBoardMetadata(boardId?: string) {
   }
 }
 
+function cacheBoardMetadata(boardId: string, board: any, columns: any) {
+  metadataCache.delete(boardId)
+  metadataCache.set(boardId, { board, columns, expires: Date.now() + CACHE_TTL_MS })
+  while (metadataCache.size > METADATA_CACHE_MAX_SIZE) {
+    const oldestBoardId = metadataCache.keys().next().value
+    if (oldestBoardId === undefined) break
+    metadataCache.delete(oldestBoardId)
+  }
+}
+
 export async function createBoardMcpServer(boardId: string, publicReadOnly?: boolean): Promise<McpServer> {
   let board: any
   let columns: any
 
   const cached = metadataCache.get(boardId)
   if (cached && cached.expires > Date.now()) {
+    metadataCache.delete(boardId)
+    metadataCache.set(boardId, cached)
     board = cached.board
     columns = cached.columns
   } else {
+    if (cached) metadataCache.delete(boardId)
     board = (await db.select().from(boards).where(eq(boards.id, boardId)))[0]
     if (!board) throw new Error('Board not found')
     columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId))
-    metadataCache.set(boardId, {
-      board,
-      columns,
-      expires: Date.now() + CACHE_TTL_MS,
-    })
+    cacheBoardMetadata(boardId, board, columns)
   }
 
   const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
@@ -122,17 +133,18 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
   console.log('Registering tool: list-tasks');
   server.tool(
     'list-tasks',
-    'List tasks on this board. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',
+    'List task summaries on this board. Use get-task for full details. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',
     {
       status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done', 'archive']).optional().describe('Filter by task status'),
       priority: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Filter by task priority'),
       limit: z.number().int().positive().max(MCP_MAX_PAGE_SIZE).optional().describe('Limit the number of tasks returned (maximum 100; default 10 for todo, 50 otherwise)'),
       offset: z.number().int().nonnegative().max(MCP_MAX_OFFSET).optional().describe('Offset for pagination (0-based; maximum 100000)'),
+      cursor: taskCursorSchema.optional().describe('Continue after the last task from a previous page; preferred over offset'),
     },
-    async ({ status, priority, limit, offset }) => {
+    async ({ status, priority, limit, offset, cursor }) => {
       if (enabledFunctions['list-tasks'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority, limit, offset } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'list-tasks', data: { status, priority } })
       
       const viewableStatuses = columns
         .filter(c => getPermissions(c.status).view)
@@ -147,17 +159,43 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
         inArray(tasks.status, (status ? [status] : viewableStatuses) as any)
       ]
       if (priority) conditions.push(eq(tasks.priority, priority))
+      if (cursor) {
+        conditions.push(or(
+          gt(tasks.order, cursor.order),
+          and(eq(tasks.order, cursor.order), gt(tasks.boardTaskId, cursor.boardTaskId)),
+        )!)
+      }
 
-      let q = db.select().from(tasks).where(and(...conditions)).orderBy(tasks.order)
+      let q = db.select({
+        id: tasks.id,
+        boardId: tasks.boardId,
+        title: tasks.title,
+        status: tasks.status,
+        priority: tasks.priority,
+        order: tasks.order,
+        boardTaskId: tasks.boardTaskId,
+        assignee: tasks.assignee,
+        parentTaskId: tasks.parentTaskId,
+        difficulty: tasks.difficulty,
+        isHumanOnly: tasks.isHumanOnly,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
+      }).from(tasks).where(and(...conditions)).orderBy(asc(tasks.order), asc(tasks.boardTaskId))
       const effLimit = limit ?? (status === 'todo' && !offset ? 10 : MCP_DEFAULT_PAGE_SIZE)
-      if (effLimit) q = q.limit(effLimit)
+      q = q.limit(effLimit + 1)
       if (offset) q = q.offset(offset)
       const result = await q
 
-      let filteredTasks = result.filter(t => getPermissions(t.status).view !== false)
+      const hasMore = result.length > effLimit
+      const filteredTasks = result.slice(0, effLimit).filter(t => getPermissions(t.status).view !== false)
+      const lastTask = filteredTasks.at(-1)
 
-      // If limit was applied at DB but permissions filtered some, we may have fewer; clients can page with offset for full scan if needed.
-      return { content: [{ type: 'text', text: JSON.stringify({ tasks: filteredTasks, count: filteredTasks.length }) }] }
+      return { content: [{ type: 'text', text: JSON.stringify({
+        tasks: filteredTasks,
+        count: filteredTasks.length,
+        hasMore,
+        nextCursor: hasMore && lastTask ? { order: lastTask.order, boardTaskId: lastTask.boardTaskId } : null,
+      }) }] }
     },
   )
 
@@ -189,7 +227,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     async ({ title, description, priority, parentTaskId }) => {
       if (enabledFunctions['create-task'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'create-task', data: { title, priority, parentTaskId } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'create-task', data: { priority, parentTaskId } })
       if (!getPermissions('backlog').add) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Permission denied' }) }], isError: true }
 
       const now = new Date()
@@ -274,7 +312,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     async ({ taskId, title, description, priority }) => {
       if (enabledFunctions['request-corrections'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'request-corrections', data: { taskId, title } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'request-corrections', data: { taskId } })
       const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
       const existing = existingResults[0]
       if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Original task not found' }) }], isError: true }
@@ -328,7 +366,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     async ({ taskId, reason }) => {
       if (enabledFunctions['reject-task'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'reject-task', data: { taskId, reason } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'reject-task', data: { taskId } })
       const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
       const existing = existingResults[0]
       if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
@@ -403,7 +441,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     async ({ taskId, agentName }) => {
       if (enabledFunctions['accept-task'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: agentName, action: 'accept-task', data: { taskId } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'accept-task', data: { taskId } })
       const existingResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
       const existing = existingResults[0]
       if (!existing) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
@@ -458,7 +496,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     async ({ taskId, author, content }) => {
       if (enabledFunctions['add-comment'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: author, action: 'add-comment', data: { taskId } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'add-comment', data: { taskId } })
       const taskResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
       const task = taskResults[0]
       if (!task) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
@@ -492,7 +530,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     async ({ taskId, author, content, attachmentUrl, attachmentType, attachmentName }) => {
       if (enabledFunctions['add-comment'] === false) throw new Error('Tool disabled')
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: author, action: 'add-comment', data: { taskId } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'add-comment', data: { taskId } })
       const taskResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
       const task = taskResults[0]
       if (!task) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
@@ -542,12 +580,13 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
       limit: z.number().int().positive().max(MCP_MAX_PAGE_SIZE).optional().describe('Limit number of comments (maximum 100; default 50, most recent first)'),
       offset: z.number().int().nonnegative().max(MCP_MAX_OFFSET).optional().describe('Offset for pagination (maximum 100000)'),
       since: isoDateTimeSchema.optional().describe('ISO 8601 date-time; only return comments created at/after this time (for incremental)'),
+      cursor: commentCursorSchema.optional().describe('Continue after the last comment from a previous page; preferred over offset'),
     },
-    async ({ taskId, limit, offset, since }) => {
+    async ({ taskId, limit, offset, since, cursor }) => {
       if (enabledFunctions['get-comments'] === false) throw new Error('Tool disabled')
       if (since && !isoDateTimeSchema.safeParse(since).success) return invalidSinceResult()
 
-      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'get-comments', data: { taskId, limit, offset, since } })
+      void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'get-comments', data: { taskId } })
       const taskResults = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.boardId, boardId)))
       const task = taskResults[0]
       if (!task) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Task not found' }) }], isError: true }
@@ -555,11 +594,34 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
 
       const conditions: any[] = [eq(comments.taskId, taskId)]
       if (since) conditions.push(gte(comments.createdAt, new Date(since)))
-      let q = db.select().from(comments).where(and(...conditions)).orderBy(desc(comments.createdAt))
-      q = q.limit(limit ?? MCP_DEFAULT_PAGE_SIZE)
+      if (cursor) {
+        conditions.push(or(
+          lt(comments.createdAt, new Date(cursor.createdAt)),
+          and(eq(comments.createdAt, new Date(cursor.createdAt)), lt(comments.id, cursor.id)),
+        )!)
+      }
+      const pageSize = limit ?? MCP_DEFAULT_PAGE_SIZE
+      let q = db.select({
+        id: comments.id,
+        taskId: comments.taskId,
+        boardId: comments.boardId,
+        author: comments.author,
+        content: comments.content,
+        attachment: comments.attachment,
+        createdAt: comments.createdAt,
+      }).from(comments).where(and(...conditions)).orderBy(desc(comments.createdAt), desc(comments.id))
+      q = q.limit(pageSize + 1)
       if (offset) q = q.offset(offset)
       const result = await q
-      return { content: [{ type: 'text', text: JSON.stringify({ comments: result, count: result.length }) }] }
+      const hasMore = result.length > pageSize
+      const page = result.slice(0, pageSize)
+      const lastComment = page.at(-1)
+      return { content: [{ type: 'text', text: JSON.stringify({
+        comments: page,
+        count: page.length,
+        hasMore,
+        nextCursor: hasMore && lastComment ? { createdAt: lastComment.createdAt, id: lastComment.id } : null,
+      }) }] }
     },
   )
 
@@ -571,24 +633,43 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
       if (enabledFunctions['board-state'] === false) throw new Error('Resource disabled')
 
       void logBoardEvent({ boardId, type: 'mcp_request', actor: 'AI Agent', action: 'resource:board-state', data: {} })
-      const boardTasks = await db.select().from(tasks).where(eq(tasks.boardId, boardId))
-      const allTasks = boardTasks.filter(canViewTask)
       const SAMPLE = 50
-      const grouped = {
-        backlog: allTasks.filter(t => t.status === 'backlog').slice(0, SAMPLE),
-        todo: allTasks.filter(t => t.status === 'todo').slice(0, SAMPLE),
-        in_progress: allTasks.filter(t => t.status === 'in_progress').slice(0, SAMPLE),
-        review: allTasks.filter(t => t.status === 'review').slice(0, SAMPLE),
-        done: allTasks.filter(t => t.status === 'done').slice(0, SAMPLE),
+      const viewableStatuses = columns.filter(column => getPermissions(column.status).view).map(column => column.status)
+      const statusNames = ['backlog', 'todo', 'in_progress', 'review', 'done', 'archive'] as const
+      const grouped: Record<string, any[]> = Object.fromEntries(statusNames.map(status => [status, []]))
+      const counts: Record<string, number> = Object.fromEntries(statusNames.map(status => [status, 0]))
+
+      if (viewableStatuses.length > 0) {
+        const countRows = await db.select({ status: tasks.status, total: count() })
+          .from(tasks)
+          .where(and(eq(tasks.boardId, boardId), inArray(tasks.status, viewableStatuses as any)))
+          .groupBy(tasks.status)
+        for (const row of countRows) counts[row.status] = row.total
+
+        await Promise.all(viewableStatuses.map(async (status) => {
+          grouped[status] = await db.select({
+            id: tasks.id,
+            boardId: tasks.boardId,
+            title: tasks.title,
+            status: tasks.status,
+            priority: tasks.priority,
+            order: tasks.order,
+            boardTaskId: tasks.boardTaskId,
+            assignee: tasks.assignee,
+            parentTaskId: tasks.parentTaskId,
+            difficulty: tasks.difficulty,
+            isHumanOnly: tasks.isHumanOnly,
+            createdAt: tasks.createdAt,
+            updatedAt: tasks.updatedAt,
+          }).from(tasks)
+            .where(and(eq(tasks.boardId, boardId), eq(tasks.status, status as any)))
+            .orderBy(asc(tasks.order), asc(tasks.boardTaskId))
+            .limit(SAMPLE)
+        }))
       }
-      const counts = {
-        backlog: allTasks.filter(t => t.status === 'backlog').length,
-        todo: allTasks.filter(t => t.status === 'todo').length,
-        in_progress: allTasks.filter(t => t.status === 'in_progress').length,
-        review: allTasks.filter(t => t.status === 'review').length,
-        done: allTasks.filter(t => t.status === 'done').length,
-      }
-      return { contents: [{ uri: `moo-tasks://${boardId}/board-state`, mimeType: 'application/json', text: JSON.stringify({ totalTasks: allTasks.length, counts, columns: grouped, note: 'Per-column samples capped at 50; use list-tasks with limit/offset or status filter for full results.' }) }] }
+
+      const totalTasks = Object.values(counts).reduce((total, statusCount) => total + statusCount, 0)
+      return { contents: [{ uri: `moo-tasks://${boardId}/board-state`, mimeType: 'application/json', text: JSON.stringify({ totalTasks, counts, columns: grouped, note: 'Per-column samples capped at 50; use list-tasks with cursor pagination or a status filter for full results.' }) }] }
     },
   )
 
@@ -624,8 +705,9 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
       template: z.enum(['simple', 'detailed', 'priority']).optional().default('simple').describe('Changelog formatting template'),
       limit: z.number().int().positive().max(MCP_MAX_PAGE_SIZE).optional().describe('Max number of done tasks to include (maximum 100; default 100, newest first)'),
       since: isoDateTimeSchema.optional().describe('ISO 8601 date-time; only include tasks updated at/after this (incremental changelog)'),
+      cursor: changelogCursorSchema.optional().describe('Continue after the last task from a previous changelog page'),
     },
-    async ({ template, limit, since }) => {
+    async ({ template, limit, since, cursor }) => {
       if (enabledFunctions['generate-changelog'] === false) throw new Error('Tool disabled')
       if (since && !isoDateTimeSchema.safeParse(since).success) return invalidSinceResult()
 
@@ -633,11 +715,23 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
       if (!getPermissions('done').view) return { content: [{ type: 'text', text: 'No tasks completed yet.' }] }
       const conditions = [eq(tasks.boardId, boardId), eq(tasks.status, 'done')]
       if (since) conditions.push(gte(tasks.updatedAt, new Date(since)))
-      let q = db.select().from(tasks)
+      if (cursor) {
+        const cursorDate = new Date(cursor.updatedAt)
+        conditions.push(or(
+          lt(tasks.updatedAt, cursorDate),
+          and(eq(tasks.updatedAt, cursorDate), lt(tasks.id, cursor.id)),
+        )!)
+      }
+      const pageSize = limit ?? MCP_MAX_PAGE_SIZE
+      let q = db.select({ id: tasks.id, title: tasks.title, description: tasks.description, priority: tasks.priority, updatedAt: tasks.updatedAt })
+        .from(tasks)
         .where(and(...conditions))
-        .orderBy(desc(tasks.updatedAt))
-      q = q.limit(limit ?? MCP_MAX_PAGE_SIZE)
-      const doneTasks = await q
+        .orderBy(desc(tasks.updatedAt), desc(tasks.id))
+      q = q.limit(pageSize + 1)
+      const queryResults = await q
+      const hasMore = queryResults.length > pageSize
+      const doneTasks = queryResults.slice(0, pageSize)
+      const lastTask = doneTasks.at(-1)
 
       if (doneTasks.length === 0) {
         return { content: [{ type: 'text', text: 'No tasks completed yet.' }] }
@@ -681,6 +775,11 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
         doneTasks.forEach(task => {
           changelog += `- ${task.title}\n`
         })
+      }
+
+      if (hasMore && lastTask) {
+        const nextCursor = { updatedAt: lastTask.updatedAt, id: lastTask.id }
+        changelog += `\n---\nMore completed tasks are available. Continue with cursor: ${JSON.stringify(nextCursor)}\n`
       }
 
       return { content: [{ type: 'text', text: changelog }] }
@@ -727,7 +826,7 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
         }
       })
 
-      void logBoardEvent({ boardId: newBoardId, type: 'user_action', actor: 'AI Agent', action: 'board:created', data: { name } })
+      void logBoardEvent({ boardId: newBoardId, type: 'user_action', actor: 'AI Agent', action: 'board:created' })
       
       return { content: [{ type: 'text', text: JSON.stringify({ message: 'Board created successfully', board: newBoard }) }] }
     }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { logBoardEvent } from '../../server/utils/logs'
+import { cleanupOldBoardLogs, logBoardEvent } from '../../server/utils/logs'
 import { db } from '../../server/db'
 import { boardLogs, boards } from '../../server/db/schema'
 
@@ -7,6 +7,8 @@ vi.mock('../../server/db', () => ({
   db: {
     insert: vi.fn(),
     update: vi.fn(),
+    select: vi.fn(),
+    delete: vi.fn(),
   }
 }))
 
@@ -137,6 +139,36 @@ describe('logs utils', () => {
     })
 
     expect(db.update).not.toHaveBeenCalled()
+  })
+
+  it('throttles repeated MCP request logs for the same board and action', async () => {
+    ;(db.insert as any).mockReturnValue({ values: vi.fn().mockResolvedValue({}) })
+    ;(db.update as any).mockReturnValue({ set: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue({}) })
+    const event = { boardId: 'board-mcp-throttle', type: 'mcp_request' as const, actor: 'Agent', action: 'list-tasks-throttle-test' }
+
+    await logBoardEvent(event)
+    await logBoardEvent(event)
+    expect(db.insert).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(1001)
+    await logBoardEvent(event)
+    expect(db.insert).toHaveBeenCalledTimes(2)
+  })
+
+  it('deletes old logs in bounded batches and validates cleanup limits', async () => {
+    const resultSets = [[{ id: 'old-1' }, { id: 'old-2' }], [{ id: 'old-3' }], []]
+    ;(db.select as any).mockImplementation(() => ({
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue(resultSets.shift()),
+    }))
+    ;(db.delete as any).mockReturnValue({ where: vi.fn().mockResolvedValue({}) })
+
+    await expect(cleanupOldBoardLogs(90, 2)).resolves.toBe(3)
+    expect(db.delete).toHaveBeenCalledTimes(2)
+    await expect(cleanupOldBoardLogs(0)).rejects.toThrow('Retention period must be a positive integer')
+    await expect(cleanupOldBoardLogs(90, 1001)).rejects.toThrow('Cleanup batch size')
   })
 
   it('should handle errors gracefully', async () => {

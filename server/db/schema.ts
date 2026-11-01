@@ -1,4 +1,4 @@
-import { mysqlTable, varchar, text, timestamp, boolean, mysqlEnum, primaryKey, int, json, uniqueIndex } from 'drizzle-orm/mysql-core'
+import { mysqlTable, varchar, text, timestamp, boolean, mysqlEnum, primaryKey, int, json, index, uniqueIndex } from 'drizzle-orm/mysql-core'
 
 export const users = mysqlTable('users', {
   id: varchar('id', { length: 191 }).primaryKey(),
@@ -66,6 +66,8 @@ export const tasks = mysqlTable('tasks', {
   updatedAt: timestamp('updated_at').notNull(),
 }, (table) => [
   uniqueIndex('tasks_board_id_board_task_id_unique').on(table.boardId, table.boardTaskId),
+  index('tasks_board_status_order_task_id_idx').on(table.boardId, table.status, table.order, table.boardTaskId),
+  index('tasks_board_order_task_id_idx').on(table.boardId, table.order, table.boardTaskId),
 ])
 
 export const boardTaskCounters = mysqlTable('board_task_counters', {
@@ -91,7 +93,9 @@ export const comments = mysqlTable('comments', {
   content: text('content').notNull(),
   attachment: json('attachment'),
   createdAt: timestamp('created_at').notNull(),
-})
+}, (table) => [
+  index('comments_task_created_id_idx').on(table.taskId, table.createdAt, table.id),
+])
 
 export const invitations = mysqlTable('invitations', {
   id: varchar('id', { length: 191 }).primaryKey(),
@@ -145,7 +149,10 @@ export const boardLogs = mysqlTable('board_logs', {
   action: varchar('action', { length: 255 }).notNull(),
   data: json('data'),
   createdAt: timestamp('created_at').notNull(),
-})
+}, (table) => [
+  index('board_logs_board_created_idx').on(table.boardId, table.createdAt),
+  index('board_logs_created_idx').on(table.createdAt),
+])
 
 export const boardColumns = mysqlTable('board_columns', {
   id: varchar('id', { length: 191 }).primaryKey(),

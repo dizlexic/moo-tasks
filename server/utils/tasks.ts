@@ -1,44 +1,60 @@
-import { eq, and, asc, desc, sql } from 'drizzle-orm'
+import { eq, and, asc, sql, inArray } from 'drizzle-orm'
 import { db } from '../db'
-import { boardTaskCounters, tasks } from '../db/schema'
+import { boardTaskCounters, boards, tasks } from '../db/schema'
 import { emitTaskEvent } from './socket'
 
 export async function reindexTasks(boardId: string, status: string) {
-  const tasksInColumn = await db.select().from(tasks)
-    .where(and(eq(tasks.boardId, boardId), eq(tasks.status, status)))
-    .orderBy(asc(tasks.order), desc(tasks.createdAt))
+  const changedTasks = await db.transaction(async (tx) => {
+    await tx.select({ id: boards.id }).from(boards).where(eq(boards.id, boardId)).for('update')
+    const tasksInColumn = await tx.select({ id: tasks.id, order: tasks.order, boardTaskId: tasks.boardTaskId }).from(tasks)
+      .where(and(eq(tasks.boardId, boardId), eq(tasks.status, status)))
+      .orderBy(asc(tasks.order), asc(tasks.boardTaskId))
+    const orderedTasks = tasksInColumn.map((task, order) => ({ ...task, order }))
+    return updateChangedTaskOrders(tx, boardId, tasksInColumn, orderedTasks)
+  })
 
-  for (let i = 0; i < tasksInColumn.length; i++) {
-    if (tasksInColumn[i].order !== i) {
-      await db.update(tasks).set({ order: i, updatedAt: new Date() }).where(eq(tasks.id, tasksInColumn[i].id))
-      const updated = { ...tasksInColumn[i], order: i, updatedAt: new Date() }
-      emitTaskEvent(boardId, 'task:updated', updated)
-    }
-  }
+  changedTasks.forEach(task => emitTaskEvent(boardId, 'task:updated', task))
 }
 
 export async function reorderTasks(boardId: string, status: string, taskId: string, newOrder: number) {
-  const tasksInColumn = await db.select().from(tasks)
-    .where(and(eq(tasks.boardId, boardId), eq(tasks.status, status)))
-    .orderBy(asc(tasks.order), desc(tasks.createdAt))
+  const changedTasks = await db.transaction(async (tx) => {
+    await tx.select({ id: boards.id }).from(boards).where(eq(boards.id, boardId)).for('update')
+    const tasksInColumn = await tx.select({ id: tasks.id, order: tasks.order, boardTaskId: tasks.boardTaskId }).from(tasks)
+      .where(and(eq(tasks.boardId, boardId), eq(tasks.status, status)))
+      .orderBy(asc(tasks.order), asc(tasks.boardTaskId))
 
-  // Find the task, remove it from old list
-  const taskToMove = tasksInColumn.find(t => t.id === taskId)
-  const otherTasks = tasksInColumn.filter(t => t.id !== taskId)
+    const taskToMove = tasksInColumn.find(task => task.id === taskId)
+    if (!taskToMove) return []
 
-  if (!taskToMove) return;
+    const orderedTasks = tasksInColumn.filter(task => task.id !== taskId)
+    orderedTasks.splice(Math.max(0, Math.min(newOrder, orderedTasks.length)), 0, taskToMove)
+    return updateChangedTaskOrders(tx, boardId, tasksInColumn, orderedTasks.map((task, order) => ({ ...task, order })))
+  })
 
-  // Insert at new position
-  otherTasks.splice(newOrder, 0, taskToMove)
+  changedTasks.forEach(task => emitTaskEvent(boardId, 'task:updated', task))
+}
 
-  // Update all
-  for (let i = 0; i < otherTasks.length; i++) {
-    if (otherTasks[i].order !== i) {
-      await db.update(tasks).set({ order: i, updatedAt: new Date() }).where(eq(tasks.id, otherTasks[i].id))
-      const updated = { ...otherTasks[i], order: i, updatedAt: new Date() }
-      emitTaskEvent(boardId, 'task:updated', updated)
-    }
-  }
+async function updateChangedTaskOrders(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  boardId: string,
+  originalTasks: { id: string; order: number }[],
+  orderedTasks: { id: string; order: number }[],
+) {
+  const originalOrders = new Map(originalTasks.map(task => [task.id, task.order]))
+  const changedTasks = orderedTasks.filter(task => originalOrders.get(task.id) !== task.order)
+  if (changedTasks.length === 0) return []
+
+  const updatedAt = new Date()
+  const orderCases = changedTasks.map(task => sql`when ${task.id} then ${task.order}`)
+  await tx.update(tasks)
+    .set({
+      order: sql<number>`case ${tasks.id} ${sql.join(orderCases, sql` `)} else ${tasks.order} end`,
+      updatedAt,
+    })
+    .where(and(eq(tasks.boardId, boardId), inArray(tasks.id, changedTasks.map(task => task.id))))
+
+  return tx.select().from(tasks)
+    .where(and(eq(tasks.boardId, boardId), inArray(tasks.id, changedTasks.map(task => task.id))))
 }
 
 export async function getNextBoardTaskId(boardId: string): Promise<number> {

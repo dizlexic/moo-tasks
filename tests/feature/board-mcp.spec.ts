@@ -239,7 +239,7 @@ describe('board-mcp utils', () => {
       expect(db.update).not.toHaveBeenCalled()
     })
 
-    it('supports limit + offset pagination in list-tasks (DB-backed, exercises limit/offset path)', async () => {
+    it('supports bounded cursor pagination in list-tasks with a stable continuation key', async () => {
       const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'list-tasks': true }, allowAiReview: false }
       const mockColumns = [{ status: 'todo', permissions: { view: true } }]
       ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
@@ -248,18 +248,37 @@ describe('board-mcp utils', () => {
       const server = await createBoardMcpServer('board-1')
       const listHandler = server._registeredTools['list-tasks'].handler
 
-      const manyTasks = Array.from({ length: 25 }, (_, i) => ({ id: 't' + i, status: 'todo', order: i }))
+      const firstPage = [
+        { id: 'task-1', status: 'todo', order: 1, boardTaskId: 1 },
+        { id: 'task-2', status: 'todo', order: 1, boardTaskId: 2 },
+        { id: 'task-3', status: 'todo', order: 2, boardTaskId: 3 },
+      ]
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        offset: vi.fn().mockResolvedValue(manyTasks.slice(10, 15)),
+        limit: vi.fn().mockResolvedValue(firstPage),
       })
 
-      const res = await listHandler({ status: 'todo', limit: 5, offset: 10 })
-      const p = JSON.parse(res.content[0].text)
-      expect(p.tasks).toHaveLength(5)
+      const firstResult = await listHandler({ status: 'todo', limit: 2 })
+      const firstPageResult = JSON.parse(firstResult.content[0].text)
+      expect(firstPageResult.tasks).toHaveLength(2)
+      expect(db.select.mock.calls[2][0]).not.toHaveProperty('description')
+      expect(firstPageResult.hasMore).toBe(true)
+      expect(firstPageResult.nextCursor).toEqual({ order: 1, boardTaskId: 2 })
+
+      const secondPage = [{ id: 'task-3', status: 'todo', order: 2, boardTaskId: 3 }]
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue(secondPage),
+      })
+      const secondResult = await listHandler({ status: 'todo', limit: 2, cursor: firstPageResult.nextCursor })
+      const secondPageResult = JSON.parse(secondResult.content[0].text)
+      expect(secondPageResult.tasks).toEqual(secondPage)
+      expect(secondPageResult.hasMore).toBe(false)
+      expect(secondPageResult.nextCursor).toBeNull()
     })
 
     it('should create a task when create-task is called', async () => {
@@ -486,13 +505,20 @@ describe('board-mcp utils', () => {
       const boardStateResource = server._registeredResources['moo-tasks://board-1/board-state']
       const boardStateHandler = boardStateResource.readCallback
 
-      const mockTasks = [
-        { id: 'task-1', status: 'todo' },
-        { id: 'task-2', status: 'done' }
-      ]
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue(mockTasks),
+        where: vi.fn().mockReturnThis(),
+        groupBy: vi.fn().mockResolvedValue([{ status: 'todo', total: 1 }, { status: 'done', total: 1 }]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([{ id: 'task-1', status: 'todo' }]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([{ id: 'task-2', status: 'done' }]),
       })
 
       const result = await boardStateHandler(new URL('moo-tasks://board-1/board-state'))
@@ -515,10 +541,13 @@ describe('board-mcp utils', () => {
       const boardStateResource = server._registeredResources['moo-tasks://board-1/board-state']
       ;(db.select as any).mockReturnValueOnce({
         from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue([
-          { id: 'task-1', status: 'backlog' },
-          { id: 'task-2', status: 'todo' },
-        ]),
+        where: vi.fn().mockReturnThis(),
+        groupBy: vi.fn().mockResolvedValue([{ status: 'todo', total: 1 }]),
+      }).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([{ id: 'task-2', status: 'todo' }]),
       })
 
       const result = await boardStateResource.readCallback(new URL('moo-tasks://board-1/board-state'))
@@ -553,6 +582,49 @@ describe('board-mcp utils', () => {
       expect(addResult.isError).toBe(true)
       expect(getResult.isError).toBe(true)
       expect(db.insert).not.toHaveBeenCalled()
+    })
+
+    it('paginates comments with a timestamp and ID cursor', async () => {
+      const mockBoard = { id: 'board-1', mcpEnabledFunctions: { 'get-comments': true } }
+      const mockColumns = [{ status: 'todo', permissions: { view: true } }]
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([mockBoard]) })
+        .mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue(mockColumns) })
+
+      const server = await createBoardMcpServer('board-1')
+      const getCommentsHandler = server._registeredTools['get-comments'].handler
+      const task = { id: 'task-1', status: 'todo' }
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([task]) })
+
+      const firstCreatedAt = new Date('2026-10-31T12:00:00.000Z')
+      const secondCreatedAt = new Date('2026-10-31T11:00:00.000Z')
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([
+          { id: 'comment-1', taskId: 'task-1', createdAt: firstCreatedAt },
+          { id: 'comment-2', taskId: 'task-1', createdAt: secondCreatedAt },
+        ]),
+      })
+
+      const firstResult = await getCommentsHandler({ taskId: 'task-1', limit: 1 })
+      const firstPage = JSON.parse(firstResult.content[0].text)
+      expect(firstPage.comments).toHaveLength(1)
+      expect(firstPage.hasMore).toBe(true)
+      expect(firstPage.nextCursor).toEqual({ createdAt: firstCreatedAt.toISOString(), id: 'comment-1' })
+
+      ;(db.select as any).mockReturnValueOnce({ from: vi.fn().mockReturnThis(), where: vi.fn().mockResolvedValue([task]) })
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockReturnThis(),
+          orderBy: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue([{ id: 'comment-2', taskId: 'task-1', createdAt: secondCreatedAt }]),
+        })
+      const secondResult = await getCommentsHandler({ taskId: 'task-1', limit: 1, cursor: firstPage.nextCursor })
+      const secondPage = JSON.parse(secondResult.content[0].text)
+      expect(secondPage.comments[0].id).toBe('comment-2')
+      expect(secondPage.hasMore).toBe(false)
+      expect(secondPage.nextCursor).toBeNull()
     })
 
     it('should deny applying a plan when the Todo column does not allow additions', async () => {
@@ -644,6 +716,21 @@ describe('board-mcp utils', () => {
       const detailed = await genChangelogHandler({ template: 'detailed' })
       expect(detailed.content[0].text).toContain('### Ship v1')
       expect(detailed.content[0].text).toContain('Initial release')
+
+      const extraDone = [
+        { id: 'd3', title: 'Newest', description: null, priority: 'high', updatedAt: new Date('2026-06-03T00:00:00.000Z') },
+        { id: 'd2', title: 'Next', description: null, priority: 'medium', updatedAt: new Date('2026-06-02T00:00:00.000Z') },
+        { id: 'd1', title: 'Older', description: null, priority: 'low', updatedAt: new Date('2026-06-01T00:00:00.000Z') },
+      ]
+      ;(db.select as any).mockReturnValueOnce({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue(extraDone),
+      })
+      const paginated = await genChangelogHandler({ limit: 2 })
+      expect(paginated.content[0].text).toContain('More completed tasks are available.')
+      expect(paginated.content[0].text).toContain('"id":"d2"')
     })
 
     it('caches board metadata without additional database reads', async () => {

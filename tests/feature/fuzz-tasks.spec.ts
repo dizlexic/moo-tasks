@@ -8,6 +8,7 @@ vi.mock('../../server/db', () => ({
   db: {
     select: vi.fn(),
     update: vi.fn(),
+    transaction: vi.fn(),
   }
 }))
 
@@ -30,22 +31,27 @@ describe('reorderTasks fuzz testing', () => {
         async (boardId, status, taskId, newOrder) => {
           // Mock DB select to return some random tasks
           const mockTasks = [
-            { id: '1', order: 0 },
-            { id: '2', order: 1 },
-            { id: taskId, order: 2 } // Ensure taskId is in the list sometimes
+            { id: '1', order: 0, boardTaskId: 1 },
+            { id: '2', order: 1, boardTaskId: 2 },
+            { id: taskId, order: 2, boardTaskId: 3 } // Ensure taskId is in the list sometimes
           ]
-          const mockSelectChain = {
-            from: vi.fn().mockReturnThis(),
-            where: vi.fn().mockReturnThis(),
-            orderBy: vi.fn().mockResolvedValue(mockTasks)
+          let selectCalls = 0
+          const tx = {
+            select: vi.fn(() => {
+              selectCalls++
+              const query: any = {
+                from: vi.fn().mockReturnThis(),
+                where: vi.fn(() => selectCalls === 3 ? Promise.resolve(mockTasks) : query),
+                for: vi.fn().mockResolvedValue([{ id: boardId }]),
+                orderBy: vi.fn().mockResolvedValue(mockTasks),
+              }
+              return query
+            }),
+            update: vi.fn(() => ({
+              set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue({}) }),
+            })),
           }
-          ;(db.select as any).mockReturnValue(mockSelectChain)
-
-          const mockUpdateChain = {
-            set: vi.fn().mockReturnThis(),
-            where: vi.fn().mockResolvedValue({})
-          }
-          ;(db.update as any).mockReturnValue(mockUpdateChain)
+          ;(db.transaction as any).mockImplementation((callback: any) => callback(tx))
 
           // We expect this to run without throwing an error
           await reorderTasks(boardId, status, taskId, newOrder)

@@ -169,6 +169,20 @@
       "when": 1793515777473,
       "tag": "0023_large_sharon_carter",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1793517186083,
+      "tag": "0024_typical_iceman",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1793517271620,
+      "tag": "0025_tan_wrecking_crew",
+      "breakpoints": true
     }
   ]
 }

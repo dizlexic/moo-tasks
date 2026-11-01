@@ -16,6 +16,30 @@ vi.mock('../../server/utils/socket', () => ({
   emitTaskEvent: vi.fn(),
 }))
 
+function mockTaskOrderingTransaction(mockTasks: any[], refreshedTasks = mockTasks.map((task, order) => ({ ...task, order }))) {
+  let selectCount = 0
+  const orderBy = vi.fn().mockResolvedValue(mockTasks)
+  const forUpdate = vi.fn().mockResolvedValue([{ id: 'board-1' }])
+  const select = vi.fn(() => {
+    selectCount++
+    const query: any = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn(() => selectCount === 3 ? Promise.resolve(refreshedTasks) : query),
+      for: forUpdate,
+      orderBy,
+    }
+    return query
+  })
+  const updateWhere = vi.fn().mockResolvedValue({})
+  const set = vi.fn().mockReturnValue({ where: updateWhere })
+  const tx = {
+    select,
+    update: vi.fn().mockReturnValue({ set }),
+  }
+  ;(db.transaction as any).mockImplementation((callback: any) => callback(tx))
+  return { tx, forUpdate, orderBy, set, updateWhere }
+}
+
 describe('tasks utils', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -57,16 +81,12 @@ describe('tasks utils', () => {
         { id: '1', order: 0 },
         { id: '2', order: 1 }
       ]
-      const mockSelectChain = {
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue(mockTasks)
-      }
-      ;(db.select as any).mockReturnValue(mockSelectChain)
+      const ordering = mockTaskOrderingTransaction(mockTasks)
 
       await reindexTasks('board-1', 'todo')
       
       expect(db.update).not.toHaveBeenCalled()
+      expect(ordering.forUpdate).toHaveBeenCalledWith('update')
       expect(emitTaskEvent).not.toHaveBeenCalled()
     })
 
@@ -75,22 +95,12 @@ describe('tasks utils', () => {
         { id: '1', order: 5 },
         { id: '2', order: 10 }
       ]
-      const mockSelectChain = {
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue(mockTasks)
-      }
-      ;(db.select as any).mockReturnValue(mockSelectChain)
-
-      const mockUpdateChain = {
-        set: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue({})
-      }
-      ;(db.update as any).mockReturnValue(mockUpdateChain)
+      const ordering = mockTaskOrderingTransaction(mockTasks)
 
       await reindexTasks('board-1', 'todo')
 
-      expect(db.update).toHaveBeenCalledTimes(2)
+      expect(ordering.tx.update).toHaveBeenCalledTimes(1)
+      expect(ordering.set).toHaveBeenCalledWith(expect.objectContaining({ order: expect.anything(), updatedAt: expect.any(Date) }))
       expect(emitTaskEvent).toHaveBeenCalledTimes(2)
       expect(emitTaskEvent).toHaveBeenCalledWith('board-1', 'task:updated', expect.objectContaining({ id: '1', order: 0 }))
       expect(emitTaskEvent).toHaveBeenCalledWith('board-1', 'task:updated', expect.objectContaining({ id: '2', order: 1 }))
@@ -98,45 +108,33 @@ describe('tasks utils', () => {
   })
 
   describe('reorderTasks', () => {
-    it('should move a task and reindex remaining', async () => {
+    it('should move a task with one batched update and emit only changed rows', async () => {
       const mockTasks = [
         { id: '1', order: 0 },
         { id: '2', order: 1 },
         { id: '3', order: 2 }
       ]
-      const mockSelectChain = {
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue(mockTasks)
-      }
-      ;(db.select as any).mockReturnValue(mockSelectChain)
-
-      const mockUpdateChain = {
-        set: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue({})
-      }
-      ;(db.update as any).mockReturnValue(mockUpdateChain)
+      const ordering = mockTaskOrderingTransaction(mockTasks, [
+        { id: '3', order: 0 },
+        { id: '1', order: 1 },
+        { id: '2', order: 2 },
+      ])
 
       // Move task '3' to index 0
       await reorderTasks('board-1', 'todo', '3', 0)
 
       // Expected order: '3' (0), '1' (1), '2' (2)
-      expect(db.update).toHaveBeenCalledTimes(3)
+      expect(ordering.tx.update).toHaveBeenCalledTimes(1)
       expect(emitTaskEvent).toHaveBeenCalledWith('board-1', 'task:updated', expect.objectContaining({ id: '3', order: 0 }))
       expect(emitTaskEvent).toHaveBeenCalledWith('board-1', 'task:updated', expect.objectContaining({ id: '1', order: 1 }))
       expect(emitTaskEvent).toHaveBeenCalledWith('board-1', 'task:updated', expect.objectContaining({ id: '2', order: 2 }))
     })
 
     it('should return early if task to move is not found', async () => {
-      const mockSelectChain = {
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue([])
-      }
-      ;(db.select as any).mockReturnValue(mockSelectChain)
+      const ordering = mockTaskOrderingTransaction([])
 
       await reorderTasks('board-1', 'todo', 'non-existent', 0)
-      expect(db.update).not.toHaveBeenCalled()
+      expect(ordering.tx.update).not.toHaveBeenCalled()
     })
   })
 })
