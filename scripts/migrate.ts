@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
+import type { RowDataPacket } from 'mysql2';
 import { migrate } from 'drizzle-orm/mysql2/migrator';
 import * as schema from '../server/db/schema';
 import path from 'path';
@@ -7,6 +8,10 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { generateId } from '../server/utils/id';
 import { DEFAULT_AGENT_INSTRUCTIONS, DEFAULT_TASK_WORKFLOW } from '../server/db/defaults';
+import { getMysqlConnectionOptions } from '../server/db/mysql-connection-options';
+
+const MIGRATION_LOCK_NAME = 'moo-agent-board:migrations';
+const MIGRATION_LOCK_TIMEOUT_SECONDS = 300;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,11 +44,24 @@ async function main() {
   }
 
   console.log('Connecting to database...');
-  const connection = await mysql.createConnection(databaseUrl);
+  const connection = await mysql.createConnection(
+    getMysqlConnectionOptions(databaseUrl, process.env.DB_SSL),
+  );
   const db = drizzle(connection, { schema, mode: 'default' });
 
-  console.log('Running migrations...');
+  let migrationLockAcquired = false;
   try {
+    console.log('Waiting for the database migration lock...');
+    const [lockRows] = await connection.query<RowDataPacket[]>(
+      'SELECT GET_LOCK(?, ?) AS acquired',
+      [MIGRATION_LOCK_NAME, MIGRATION_LOCK_TIMEOUT_SECONDS],
+    );
+    if (lockRows[0]?.acquired !== 1) {
+      throw new Error(`Could not acquire database migration lock within ${MIGRATION_LOCK_TIMEOUT_SECONDS} seconds`);
+    }
+    migrationLockAcquired = true;
+
+    console.log('Running migrations...');
     await migrate(db, { migrationsFolder });
     console.log('Migrations completed successfully!');
     
@@ -76,18 +94,25 @@ async function main() {
       console.log('Instructions already exist, skipping seed.');
     }
 
-    await connection.end();
-    process.exit(0);
   } catch (error) {
     console.error('Migration failed!');
     console.error(error);
+    process.exitCode = 1;
+  } finally {
+    if (migrationLockAcquired) {
+      try {
+        await connection.query('SELECT RELEASE_LOCK(?)', [MIGRATION_LOCK_NAME]);
+      } catch (error) {
+        console.error('Failed to release database migration lock:', error);
+        process.exitCode = 1;
+      }
+    }
     await connection.end();
-    process.exit(1);
   }
 }
 
 main().catch((err) => {
   console.error('Unexpected error in migration script:');
   console.error(err);
-  process.exit(1);
+  process.exitCode = 1;
 });

@@ -174,6 +174,14 @@ serve requests. If migration fails, startup stops; inspect partial MySQL DDL
 before retrying rather than starting the application against a half-migrated
 schema.
 
+Every app instance runs the startup migration script. The script takes a
+connection-scoped MySQL advisory lock before migrating (and keeps it through
+default seeding), so only one instance can run migrations at a time. If an
+instance fails with a duplicate-table or duplicate-index error, still inspect
+`__drizzle_migrations` and the actual schema before retrying: the lock prevents
+concurrent runs but cannot repair a migration that was partially applied by an
+earlier release.
+
 ---
 
 ## 4. `db:push` vs `db:migrate`

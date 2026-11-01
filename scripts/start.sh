@@ -24,23 +24,7 @@ check();
 
 # Test actual database login and query
 echo "Testing database credentials..."
-node -e "
-const mysql = require('mysql2/promise');
-async function test() {
-  try {
-    const conn = await mysql.createConnection(process.env.DATABASE_URL);
-    console.log('Successfully connected to database');
-    const [rows] = await conn.query('SELECT 1 as result');
-    console.log('Database query test successful:', rows[0].result);
-    await conn.end();
-    process.exit(0);
-  } catch (err) {
-    console.error('DATABASE CONNECTION ERROR:', err.message);
-    process.exit(1);
-  }
-}
-test();
-"
+npx tsx scripts/check-db-connection.ts
 
 echo "Verifying migration files..."
 ls -l /app/drizzle

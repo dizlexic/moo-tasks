@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/mysql2'
 import mysql from 'mysql2'
 import * as schema from './schema'
+import { getMysqlConnectionOptions } from './mysql-connection-options'
 
 function getPoolConfig(): mysql.PoolOptions {
   const databaseUrl = process.env.DATABASE_URL?.trim()
@@ -16,7 +17,7 @@ function getPoolConfig(): mysql.PoolOptions {
   if (databaseUrl) {
     return {
       ...baseOpts,
-      uri: databaseUrl,
+      ...getMysqlConnectionOptions(databaseUrl, process.env.DB_SSL),
     }
   }
 
