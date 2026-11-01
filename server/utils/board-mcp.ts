@@ -49,12 +49,17 @@ async function getInstructionContent(boardId: string, type: 'agent_instructions'
 const metadataCache = new Map<string, { version: number; columns: any; expires: number }>()
 const CACHE_TTL_MS = 30_000
 const METADATA_CACHE_MAX_SIZE = 500
+type CachedMcpRegistration = { method: 'tool' | 'prompt' | 'resource'; args: any[] }
+const registrationCache = new Map<string, { signature: string; definitions: CachedMcpRegistration[] }>()
+const REGISTRATION_CACHE_MAX_SIZE = 500
 
 export function invalidateBoardMetadata(boardId?: string) {
   if (boardId) {
     metadataCache.delete(boardId)
+    registrationCache.delete(boardId)
   } else {
     metadataCache.clear()
+    registrationCache.clear()
   }
 }
 
@@ -88,6 +93,54 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     if (cached) metadataCache.delete(boardId)
     columns = await db.select().from(boardColumns).where(eq(boardColumns.boardId, boardId))
     cacheBoardMetadata(boardId, board.mcpMetadataVersion, columns)
+    registrationCache.delete(boardId)
+  }
+
+  const serverConstructionStartedAt = performance.now()
+  const server = new McpServer({
+    name: `moo-tasks-${boardId}`,
+    version: '2.0.0',
+  })
+  const canRegisterWriteTools = !(publicReadOnly ?? board.mcpPublic === true)
+  const definitionSignature = JSON.stringify([
+    board.mcpMetadataVersion ?? 0,
+    board.ownerId,
+    board.allowAiReview,
+    canRegisterWriteTools,
+  ])
+  const cachedDefinitions = registrationCache.get(boardId)
+  const registrationCacheHit = cachedDefinitions?.signature === definitionSignature
+  const logConstructionProfile = () => {
+    if (process.env.MCP_PROFILE_SERVER_CONSTRUCTION === 'true') {
+      console.info('[MCP] Board server construction and registration completed', {
+        boardId,
+        durationMs: Number((performance.now() - serverConstructionStartedAt).toFixed(2)),
+        registrationCacheHit,
+        toolCount: Object.keys((server as any)._registeredTools).length,
+      })
+    }
+  }
+
+  if (registrationCacheHit && cachedDefinitions) {
+    registrationCache.delete(boardId)
+    registrationCache.set(boardId, cachedDefinitions)
+    for (const definition of cachedDefinitions.definitions) {
+      ;(server as any)[definition.method](...definition.args)
+    }
+    logConstructionProfile()
+    return server
+  }
+
+  const definitions: CachedMcpRegistration[] = []
+  const registrationMethods: CachedMcpRegistration['method'][] = ['tool', 'prompt', 'resource']
+  const originalRegistrationMethods = new Map<CachedMcpRegistration['method'], (...args: any[]) => unknown>()
+  for (const method of registrationMethods) {
+    const register = (server as any)[method].bind(server)
+    originalRegistrationMethods.set(method, register)
+    ;(server as any)[method] = (...args: any[]) => {
+      definitions.push({ method, args })
+      return register(...args)
+    }
   }
 
   const enabledFunctions = (board.mcpEnabledFunctions as Record<string, boolean>) || {}
@@ -106,18 +159,10 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Permission denied' }) }],
     isError: true,
   })
-
-  const serverConstructionStartedAt = performance.now()
-  const server = new McpServer({
-    name: `moo-tasks-${boardId}`,
-    version: '2.0.0',
-  })
-  const canRegisterWriteTools = !(publicReadOnly ?? board.mcpPublic === true)
   const registerWriteTool = (register: () => void) => {
     if (canRegisterWriteTools) register()
   }
 
-  console.log('Registering tool: list-tasks');
   server.tool(
     'list-tasks',
     'List task summaries on this board. Use get-task for full details. Results include count, hasMore, and nextCursor; pass nextCursor to continue. WHEN TO USE: To discover available tasks, check board status, or find tasks by status/priority.',
@@ -895,12 +940,16 @@ export async function createBoardMcpServer(boardId: string, publicReadOnly?: boo
     }
   ))
 
-  if (process.env.MCP_PROFILE_SERVER_CONSTRUCTION === 'true') {
-    console.info('[MCP] Board server construction and registration completed', {
-      boardId,
-      durationMs: Number((performance.now() - serverConstructionStartedAt).toFixed(2)),
-    })
+  registrationCache.set(boardId, { signature: definitionSignature, definitions })
+  while (registrationCache.size > REGISTRATION_CACHE_MAX_SIZE) {
+    const oldestBoardId = registrationCache.keys().next().value
+    if (oldestBoardId === undefined) break
+    registrationCache.delete(oldestBoardId)
+  }
+  for (const [method, register] of originalRegistrationMethods) {
+    ;(server as any)[method] = register
   }
 
+  logConstructionProfile()
   return server
 }

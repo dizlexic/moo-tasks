@@ -49,6 +49,23 @@ describe('global-mcp utils', () => {
       expect(registeredTools).toHaveProperty('create-board')
     })
 
+    it('reuses global registrations without sharing user-bound handlers', async () => {
+      const anonymousServer = await createGlobalMcpServer()
+      const anotherAnonymousServer = await createGlobalMcpServer()
+      const userServer = await createGlobalMcpServer('cache-user-a')
+      const anotherUserServer = await createGlobalMcpServer('cache-user-a')
+      const differentUserServer = await createGlobalMcpServer('cache-user-b')
+
+      expect(anotherAnonymousServer).not.toBe(anonymousServer)
+      expect((anotherAnonymousServer as any)._registeredTools['get-installation-instructions'].handler)
+        .toBe((anonymousServer as any)._registeredTools['get-installation-instructions'].handler)
+      expect((anotherUserServer as any)._registeredTools['create-board'].handler)
+        .toBe((userServer as any)._registeredTools['create-board'].handler)
+      expect((differentUserServer as any)._registeredTools['create-board'].handler)
+        .not.toBe((userServer as any)._registeredTools['create-board'].handler)
+      expect((anonymousServer as any)._registeredTools).not.toHaveProperty('create-board')
+    })
+
     it('should implement create-board correctly', async () => {
       const server = await createGlobalMcpServer('user-1')
       

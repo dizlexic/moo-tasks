@@ -87,13 +87,61 @@ describe('board-mcp utils', () => {
         where: vi.fn().mockImplementation(() => Promise.resolve(selectResults.shift())),
       }))
 
-      await createBoardMcpServer('shared-board')
+      const initialServer = await createBoardMcpServer('shared-board')
       const server = await createBoardMcpServer('shared-board')
       expect(db.select).toHaveBeenCalledTimes(4)
+      expect(server._registeredTools['get-task'].handler).not.toBe(initialServer._registeredTools['get-task'].handler)
       // @ts-ignore
       const result = await server._registeredTools['get-task'].handler({ taskId: 'task-1' })
 
       expect(result).toMatchObject({ isError: true, content: [{ text: JSON.stringify({ error: 'Permission denied' }) }] })
+    })
+
+    it('reuses board registrations across concurrent requests with unchanged metadata', async () => {
+      const mockBoard = {
+        id: 'registration-cache-board',
+        ownerId: 'owner-1',
+        mcpMetadataVersion: 1,
+        mcpEnabledFunctions: null,
+        mcpPublic: false,
+      }
+      const mockQuery = (result: unknown[]) => ({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue(result),
+      })
+      ;(db.select as any)
+        .mockReturnValueOnce(mockQuery([mockBoard]))
+        .mockReturnValueOnce(mockQuery([]))
+        .mockImplementation(() => mockQuery([mockBoard]))
+
+      const initialServer = await createBoardMcpServer(mockBoard.id)
+      const servers = await Promise.all(Array.from({ length: 32 }, () => createBoardMcpServer(mockBoard.id)))
+
+      expect(new Set(servers).size).toBe(servers.length)
+      expect((servers[0] as any)._registeredTools['get-task'].handler)
+        .toBe((initialServer as any)._registeredTools['get-task'].handler)
+      expect((servers[0] as any)._registeredResources[`moo-tasks://${mockBoard.id}/board-state`].readCallback)
+        .toBe((initialServer as any)._registeredResources[`moo-tasks://${mockBoard.id}/board-state`].readCallback)
+      expect((servers[0] as any)._registeredPrompts['task-workflow'].callback)
+        .toBe((initialServer as any)._registeredPrompts['task-workflow'].callback)
+    })
+
+    it('rebuilds registrations when uncoupled board behavior settings change', async () => {
+      const selectResults = [
+        [{ id: 'review-setting-board', ownerId: 'owner-1', mcpMetadataVersion: 1, mcpEnabledFunctions: null, allowAiReview: false }],
+        [],
+        [{ id: 'review-setting-board', ownerId: 'owner-1', mcpMetadataVersion: 1, mcpEnabledFunctions: null, allowAiReview: true }],
+      ]
+      ;(db.select as any).mockImplementation(() => ({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockImplementation(() => Promise.resolve(selectResults.shift())),
+      }))
+
+      const initialServer = await createBoardMcpServer('review-setting-board')
+      const updatedServer = await createBoardMcpServer('review-setting-board')
+
+      expect((updatedServer as any)._registeredTools['reject-task'].handler)
+        .not.toBe((initialServer as any)._registeredTools['reject-task'].handler)
     })
 
     it('keeps private server registrations aligned with the shared tool registry and discovery list', async () => {
